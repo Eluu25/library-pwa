@@ -1,0 +1,9 @@
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Bricolage Grotesque", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --color-brand-50: #e7f5f2;
+  --color-brand-500: #0f7b6c;
+  --color-brand-700: #0a5a4f;
+  --color-paper: #f7f4ec;
+}
