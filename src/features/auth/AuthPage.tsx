@@ -1,42 +1,16 @@
-import { useState, FormEvent } from 'react'
+import { useState, FormEvent, ChangeEvent } from 'react'
 import { supabase } from '../../lib/supabase'
-
-type Tab = 'signin' | 'signup'
+import AuthShell, { AuthTab } from '../../components/AuthShell'
+import { Button, Input, Banner } from '../../components/ui'
+import { Mail, Lock, User, Phone, MapPin, HeartHandshake, CheckCircle2 } from 'lucide-react'
 
 export default function AuthPage() {
-  const [tab, setTab] = useState<Tab>('signin')
+  const [tab, setTab] = useState<AuthTab>('signin')
 
   return (
-    <div className="min-h-screen bg-paper flex items-center justify-center p-4">
-      <div className="w-full max-w-md bg-white rounded-2xl shadow-lg overflow-hidden">
-        <div className="flex border-b border-slate-200">
-          <button
-            className={`flex-1 py-4 text-sm font-semibold transition-colors ${
-              tab === 'signin'
-                ? 'text-brand-700 border-b-2 border-brand-500'
-                : 'text-slate-500 hover:text-slate-700'
-            }`}
-            onClick={() => setTab('signin')}
-          >
-            Sign In
-          </button>
-          <button
-            className={`flex-1 py-4 text-sm font-semibold transition-colors ${
-              tab === 'signup'
-                ? 'text-brand-700 border-b-2 border-brand-500'
-                : 'text-slate-500 hover:text-slate-700'
-            }`}
-            onClick={() => setTab('signup')}
-          >
-            Sign Up
-          </button>
-        </div>
-
-        <div className="p-6">
-          {tab === 'signin' ? <SignInForm /> : <SignUpForm />}
-        </div>
-      </div>
-    </div>
+    <AuthShell activeTab={tab} onTabChange={setTab}>
+      {tab === 'signin' ? <SignInForm /> : <SignUpForm />}
+    </AuthShell>
   )
 }
 
@@ -57,36 +31,53 @@ function SignInForm() {
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
-      <div>
-        <label className="block text-sm font-medium text-slate-700 mb-1">Email</label>
-        <input
-          type="email"
-          required
-          value={email}
-          onChange={e => setEmail(e.target.value)}
-          className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
-          placeholder="you@example.com"
+      {error && (
+        <Banner
+          variant="red"
+          title="Sign in failed"
+          message={error}
+          onClose={() => setError(null)}
         />
+      )}
+
+      <Input
+        label="Email address"
+        type="email"
+        required
+        value={email}
+        onChange={e => setEmail(e.target.value)}
+        placeholder="you@example.com"
+        icon={<Mail className="w-4 h-4" />}
+        autoComplete="email"
+      />
+
+      <Input
+        label="Password"
+        type="password"
+        required
+        value={password}
+        onChange={e => setPassword(e.target.value)}
+        placeholder="••••••••"
+        icon={<Lock className="w-4 h-4" />}
+        autoComplete="current-password"
+      />
+
+      <div className="pt-2">
+        <Button
+          type="submit"
+          variant="primary"
+          size="lg"
+          isLoading={loading}
+          loadingText="Signing in..."
+          className="w-full"
+        >
+          Sign In to Library
+        </Button>
       </div>
-      <div>
-        <label className="block text-sm font-medium text-slate-700 mb-1">Password</label>
-        <input
-          type="password"
-          required
-          value={password}
-          onChange={e => setPassword(e.target.value)}
-          className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
-          placeholder="••••••••"
-        />
-      </div>
-      {error && <p className="text-red-600 text-sm">{error}</p>}
-      <button
-        type="submit"
-        disabled={loading}
-        className="w-full bg-brand-500 hover:bg-brand-700 disabled:opacity-50 text-white font-semibold py-2 rounded-lg transition-colors"
-      >
-        {loading ? 'Signing in…' : 'Sign In'}
-      </button>
+
+      <p className="text-center text-xs text-slate-500 pt-2">
+        Protected with encrypted credentials and Row-Level Security.
+      </p>
     </form>
   )
 }
@@ -118,7 +109,7 @@ function SignUpForm() {
   const [success, setSuccess] = useState(false)
 
   function update(key: keyof SignUpFields) {
-    return (e: React.ChangeEvent<HTMLInputElement>) =>
+    return (e: ChangeEvent<HTMLInputElement>) =>
       setFields(prev => ({ ...prev, [key]: e.target.value }))
   }
 
@@ -128,6 +119,11 @@ function SignUpForm() {
 
     if (fields.password !== fields.confirmPassword) {
       setError('Passwords do not match.')
+      return
+    }
+
+    if (fields.password.length < 6) {
+      setError('Password must be at least 6 characters.')
       return
     }
 
@@ -146,6 +142,7 @@ function SignUpForm() {
       },
     })
     setLoading(false)
+
     if (error) {
       setError(error.message)
     } else {
@@ -155,47 +152,140 @@ function SignUpForm() {
 
   if (success) {
     return (
-      <div className="text-center py-8 space-y-2">
-        <div className="text-4xl">📧</div>
-        <p className="text-brand-700 font-semibold">Check your email to confirm your account.</p>
+      <div className="text-center py-6 space-y-4">
+        <div className="w-14 h-14 bg-emerald-100 text-brand-600 rounded-2xl mx-auto flex items-center justify-center">
+          <CheckCircle2 className="w-8 h-8" />
+        </div>
+        <div>
+          <h3 className="text-lg font-bold text-slate-900">Account Created!</h3>
+          <p className="text-sm text-slate-600 mt-1 max-w-sm mx-auto">
+            Welcome to the Community Library. You can now sign in to upload your Fayda ID and complete registration.
+          </p>
+        </div>
+        <div className="pt-2">
+          <Button
+            type="button"
+            variant="primary"
+            onClick={() => window.location.reload()}
+            className="w-full"
+          >
+            Continue to Sign In
+          </Button>
+        </div>
       </div>
     )
   }
 
-  const fieldDefs: { key: keyof SignUpFields; label: string; type?: string; placeholder?: string }[] = [
-    { key: 'full_name', label: 'Full Name', placeholder: 'Abebe Kebede' },
-    { key: 'email', label: 'Email', type: 'email', placeholder: 'you@example.com' },
-    { key: 'phone', label: 'Phone', type: 'tel', placeholder: '+251 9...' },
-    { key: 'address', label: 'Address', placeholder: 'Addis Ababa, Bole...' },
-    { key: 'emergency_name', label: 'Emergency Contact Name', placeholder: 'Contact name' },
-    { key: 'emergency_phone', label: 'Emergency Contact Phone', type: 'tel', placeholder: '+251 9...' },
-    { key: 'password', label: 'Password', type: 'password', placeholder: '••••••••' },
-    { key: 'confirmPassword', label: 'Confirm Password', type: 'password', placeholder: '••••••••' },
-  ]
-
   return (
-    <form onSubmit={handleSubmit} className="space-y-4">
-      {fieldDefs.map(({ key, label, type = 'text', placeholder }) => (
-        <div key={key}>
-          <label className="block text-sm font-medium text-slate-700 mb-1">{label}</label>
-          <input
-            type={type}
-            required
-            value={fields[key]}
-            onChange={update(key)}
-            placeholder={placeholder}
-            className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
-          />
-        </div>
-      ))}
-      {error && <p className="text-red-600 text-sm">{error}</p>}
-      <button
-        type="submit"
-        disabled={loading}
-        className="w-full bg-brand-500 hover:bg-brand-700 disabled:opacity-50 text-white font-semibold py-2 rounded-lg transition-colors"
-      >
-        {loading ? 'Creating account…' : 'Sign Up'}
-      </button>
+    <form onSubmit={handleSubmit} className="space-y-3.5">
+      {error && (
+        <Banner
+          variant="red"
+          title="Sign up issue"
+          message={error}
+          onClose={() => setError(null)}
+        />
+      )}
+
+      <Input
+        label="Full Name"
+        required
+        value={fields.full_name}
+        onChange={update('full_name')}
+        placeholder="e.g. Abebe Kebede"
+        icon={<User className="w-4 h-4" />}
+      />
+
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <Input
+          label="Email"
+          type="email"
+          required
+          value={fields.email}
+          onChange={update('email')}
+          placeholder="you@example.com"
+          icon={<Mail className="w-4 h-4" />}
+        />
+
+        <Input
+          label="Phone"
+          type="tel"
+          required
+          value={fields.phone}
+          onChange={update('phone')}
+          placeholder="+251 9..."
+          icon={<Phone className="w-4 h-4" />}
+        />
+      </div>
+
+      <Input
+        label="Residential Address"
+        required
+        value={fields.address}
+        onChange={update('address')}
+        placeholder="Sub-city, Woreda, House No."
+        icon={<MapPin className="w-4 h-4" />}
+      />
+
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <Input
+          label="Emergency Contact Name"
+          required
+          value={fields.emergency_name}
+          onChange={update('emergency_name')}
+          placeholder="Family / Guardian name"
+          icon={<HeartHandshake className="w-4 h-4" />}
+        />
+
+        <Input
+          label="Emergency Phone"
+          type="tel"
+          required
+          value={fields.emergency_phone}
+          onChange={update('emergency_phone')}
+          placeholder="+251 9..."
+          icon={<Phone className="w-4 h-4" />}
+        />
+      </div>
+
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <Input
+          label="Password"
+          type="password"
+          required
+          value={fields.password}
+          onChange={update('password')}
+          placeholder="••••••••"
+          icon={<Lock className="w-4 h-4" />}
+        />
+
+        <Input
+          label="Confirm Password"
+          type="password"
+          required
+          value={fields.confirmPassword}
+          onChange={update('confirmPassword')}
+          placeholder="••••••••"
+          icon={<Lock className="w-4 h-4" />}
+        />
+      </div>
+
+      <div className="pt-2">
+        <Button
+          type="submit"
+          variant="primary"
+          size="lg"
+          isLoading={loading}
+          loadingText="Creating account..."
+          className="w-full"
+        >
+          Create Member Account
+        </Button>
+      </div>
+
+      <p className="text-center text-xs text-slate-500">
+        By signing up, you agree to return borrowed books before their due date.
+      </p>
     </form>
   )
 }

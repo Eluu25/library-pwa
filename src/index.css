@@ -2,8 +2,40 @@
 
 @theme {
   --font-sans: "Bricolage Grotesque", system-ui, -apple-system, "Segoe UI", sans-serif;
-  --color-brand-50: #e7f5f2;
+
+  /* Warm cream page background */
+  --color-paper: #F7F4EC;
+  --color-paper-light: #FDFCF8;
+  --color-paper-dark: #ECE7DA;
+
+  /* Full brand green scale (anchor: #0F7B6C) */
+  --color-brand-50: #eef8f6;
+  --color-brand-100: #d6f0ea;
+  --color-brand-200: #b0e1d5;
+  --color-brand-300: #7ecbb9;
+  --color-brand-400: #49b09c;
   --color-brand-500: #0f7b6c;
+  --color-brand-600: #0d685c;
   --color-brand-700: #0a5a4f;
-  --color-paper: #f7f4ec;
+  --color-brand-800: #0a463e;
+  --color-brand-900: #093b35;
+  --color-brand-950: #03221e;
+
+  /* Gold accent scale */
+  --color-gold-50: #fffbeb;
+  --color-gold-100: #fef3c7;
+  --color-gold-200: #fde68a;
+  --color-gold-300: #fcd34d;
+  --color-gold-400: #fbbf24;
+  --color-gold-500: #f59e0b;
+  --color-gold-600: #d97706;
+  --color-gold-700: #b45309;
+  --color-gold-800: #92400e;
+  --color-gold-900: #78350f;
+}
+
+body {
+  background-color: var(--color-paper);
+  color: #1e293b;
+  font-family: var(--font-sans);
 }
