@@ -2,14 +2,17 @@ import { useState, FormEvent, ChangeEvent } from 'react'
 import { supabase } from '../../lib/supabase'
 import AuthShell, { AuthTab } from '../../components/AuthShell'
 import { Button, Input, Banner } from '../../components/ui'
-import { Mail, Lock, User, Phone, MapPin, HeartHandshake, CheckCircle2 } from 'lucide-react'
+import {
+  Mail, Lock, User, Phone, MapPin, HeartHandshake, CheckCircle2,
+  IdCard, ShieldCheck
+} from 'lucide-react'
 
 export default function AuthPage() {
   const [tab, setTab] = useState<AuthTab>('signin')
 
   return (
     <AuthShell activeTab={tab} onTabChange={setTab}>
-      {tab === 'signin' ? <SignInForm /> : <SignUpForm />}
+      {tab === 'signin' ? <SignInForm /> : <SignUpForm onContinue={() => setTab('signin')} />}
     </AuthShell>
   )
 }
@@ -25,7 +28,11 @@ function SignInForm() {
     setError(null)
     setLoading(true)
     const { error } = await supabase.auth.signInWithPassword({ email, password })
-    if (error) setError(error.message)
+    if (error) {
+      setError(error.message === 'Email not confirmed'
+        ? 'Email confirmation is enabled in Supabase. Disable it in Authentication settings; email is only collected for your account form.'
+        : error.message)
+    }
     setLoading(false)
   }
 
@@ -39,7 +46,6 @@ function SignInForm() {
           onClose={() => setError(null)}
         />
       )}
-
       <Input
         label="Email address"
         type="email"
@@ -93,7 +99,17 @@ interface SignUpFields {
   confirmPassword: string
 }
 
-function SignUpForm() {
+function isValidPhone(value: string) {
+  const trimmed = value.trim()
+  if (!trimmed || !/^[+0-9\s()-]+$/.test(trimmed)) return false
+  const digits = trimmed.replace(/\D/g, '')
+  const normalized = trimmed.replace(/[\s()-]/g, '')
+  if (normalized.startsWith('+')) return /^\+[1-9]\d{7,14}$/.test(normalized)
+  if (normalized.includes('+')) return false
+  return /^\d{9,15}$/.test(digits)
+}
+
+function SignUpForm({ onContinue }: { onContinue: () => void }) {
   const [fields, setFields] = useState<SignUpFields>({
     full_name: '',
     email: '',
@@ -107,6 +123,10 @@ function SignUpForm() {
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
   const [success, setSuccess] = useState(false)
+  const [signupNotice, setSignupNotice] = useState<string | null>(null)
+  const [faydaSubmitted, setFaydaSubmitted] = useState(false)
+  const [faydaFile, setFaydaFile] = useState<File | null>(null)
+  const [phoneTouched, setPhoneTouched] = useState({ phone: false, emergency_phone: false })
 
   function update(key: keyof SignUpFields) {
     return (e: ChangeEvent<HTMLInputElement>) =>
@@ -117,36 +137,93 @@ function SignUpForm() {
     e.preventDefault()
     setError(null)
 
+    if (!fields.full_name.trim() || !fields.address.trim() ||
+        !fields.emergency_name.trim()) {
+      setError('Enter your name, residential address, and emergency contact name.')
+      return
+    }
+
     if (fields.password !== fields.confirmPassword) {
       setError('Passwords do not match.')
       return
     }
 
-    if (fields.password.length < 6) {
-      setError('Password must be at least 6 characters.')
+    if (fields.password.length < 8 || !/[a-z]/.test(fields.password) ||
+        !/[A-Z]/.test(fields.password) || !/\d/.test(fields.password)) {
+      setError('Use at least 8 characters, including an uppercase letter, a lowercase letter, and a number.')
+      return
+    }
+
+    if (!isValidPhone(fields.phone) || !isValidPhone(fields.emergency_phone)) {
+      setPhoneTouched({ phone: true, emergency_phone: true })
+      setError('Enter a complete phone number (9–15 local digits or an international +country code).')
+      return
+    }
+
+    if (!faydaFile) {
+      setError('Please select a photo of your Fayda National ID.')
+      return
+    }
+
+    if (!['image/jpeg', 'image/png', 'image/webp'].includes(faydaFile.type) || faydaFile.size > 2 * 1024 * 1024) {
+      setError('Fayda ID must be a JPG, PNG, or WebP image no larger than 2 MB.')
       return
     }
 
     setLoading(true)
-    const { error } = await supabase.auth.signUp({
-      email: fields.email,
-      password: fields.password,
-      options: {
-        data: {
-          full_name: fields.full_name,
-          phone: fields.phone,
-          address: fields.address,
-          emergency_name: fields.emergency_name,
-          emergency_phone: fields.emergency_phone,
+    try {
+      const { data, error: signUpError } = await supabase.auth.signUp({
+        email: fields.email.trim().toLowerCase(),
+        password: fields.password,
+        options: {
+          data: {
+            full_name: fields.full_name.trim(),
+            phone: fields.phone.trim(),
+            address: fields.address.trim(),
+            emergency_name: fields.emergency_name.trim(),
+            emergency_phone: fields.emergency_phone.trim(),
+          },
         },
-      },
-    })
-    setLoading(false)
+      })
 
-    if (error) {
-      setError(error.message)
-    } else {
+      if (signUpError) {
+        setError(signUpError.message)
+        return
+      }
+
+      if (data.session && data.user) {
+        try {
+          const extension = faydaFile.type === 'image/jpeg' ? 'jpg' : faydaFile.type.split('/')[1]
+          const path = `${data.user.id}/${Date.now()}_fayda.${extension}`
+          const { error: uploadError } = await supabase.storage
+            .from('fayda-ids')
+            .upload(path, faydaFile)
+          if (uploadError) throw uploadError
+          sessionStorage.setItem('pendingFaydaPath', path)
+          window.dispatchEvent(new Event('fayda-uploaded'))
+          const { error: submitError } = await supabase.rpc('submit_member_verification', {
+            p_fayda: path,
+          })
+          if (submitError) {
+            throw submitError
+          }
+          setFaydaSubmitted(true)
+        } catch (uploadError: unknown) {
+          setSignupNotice(
+            `Your account was created, but the ID could not be linked to your application. Sign in and submit it on the verification page. ${
+              uploadError instanceof Error ? uploadError.message : ''
+            }`
+          )
+        }
+      } else {
+        setSignupNotice('Your account was created, but Supabase did not start a session. Disable email confirmation in Supabase Authentication settings, then sign in and submit your Fayda ID.')
+      }
+
       setSuccess(true)
+    } catch (submitError: unknown) {
+      setError(submitError instanceof Error ? submitError.message : 'Account creation failed unexpectedly.')
+    } finally {
+      setLoading(false)
     }
   }
 
@@ -157,19 +234,28 @@ function SignUpForm() {
           <CheckCircle2 className="w-8 h-8" />
         </div>
         <div>
-          <h3 className="text-lg font-bold text-slate-900">Account Created!</h3>
+          <h3 className="text-lg font-bold text-slate-900">
+            Account created
+          </h3>
           <p className="text-sm text-slate-600 mt-1 max-w-sm mx-auto">
-            Welcome to the Community Library. You can now sign in to upload your Fayda ID and complete registration.
+            {faydaSubmitted
+              ? 'Your Fayda ID has been attached to your application for admin review.'
+              : 'Your email is used for your account details, not for approval. There is no membership fee; payment is only required when borrowing a book.'}
           </p>
         </div>
+        {signupNotice && (
+          <p role="status" className="text-sm text-amber-200 bg-amber-950/40 border border-amber-800 rounded-xl p-3">
+            {signupNotice}
+          </p>
+        )}
         <div className="pt-2">
           <Button
             type="button"
             variant="primary"
-            onClick={() => window.location.reload()}
+            onClick={onContinue}
             className="w-full"
           >
-            Continue to Sign In
+            Back to Sign In
           </Button>
         </div>
       </div>
@@ -190,6 +276,8 @@ function SignUpForm() {
       <Input
         label="Full Name"
         required
+        minLength={2}
+        maxLength={100}
         value={fields.full_name}
         onChange={update('full_name')}
         placeholder="e.g. Abebe Kebede"
@@ -201,6 +289,7 @@ function SignUpForm() {
           label="Email"
           type="email"
           required
+          maxLength={254}
           value={fields.email}
           onChange={update('email')}
           placeholder="you@example.com"
@@ -211,8 +300,14 @@ function SignUpForm() {
           label="Phone"
           type="tel"
           required
+          maxLength={24}
+          autoComplete="tel"
+          error={phoneTouched.phone && fields.phone && !isValidPhone(fields.phone)
+            ? 'Enter a complete phone number (9–15 local digits or an international +country code).'
+            : undefined}
           value={fields.phone}
-          onChange={update('phone')}
+          onChange={e => setFields(prev => ({ ...prev, phone: e.target.value }))}
+          onBlur={() => setPhoneTouched(prev => ({ ...prev, phone: true }))}
           placeholder="+251 9..."
           icon={<Phone className="w-4 h-4" />}
         />
@@ -241,8 +336,14 @@ function SignUpForm() {
           label="Emergency Phone"
           type="tel"
           required
+          maxLength={24}
+          autoComplete="tel"
+          error={phoneTouched.emergency_phone && fields.emergency_phone && !isValidPhone(fields.emergency_phone)
+            ? 'Enter a complete phone number (9–15 local digits or an international +country code).'
+            : undefined}
           value={fields.emergency_phone}
-          onChange={update('emergency_phone')}
+          onChange={e => setFields(prev => ({ ...prev, emergency_phone: e.target.value }))}
+          onBlur={() => setPhoneTouched(prev => ({ ...prev, emergency_phone: true }))}
           placeholder="+251 9..."
           icon={<Phone className="w-4 h-4" />}
         />
@@ -253,6 +354,7 @@ function SignUpForm() {
           label="Password"
           type="password"
           required
+          minLength={8}
           value={fields.password}
           onChange={update('password')}
           placeholder="••••••••"
@@ -263,12 +365,50 @@ function SignUpForm() {
           label="Confirm Password"
           type="password"
           required
+          minLength={8}
           value={fields.confirmPassword}
           onChange={update('confirmPassword')}
           placeholder="••••••••"
           icon={<Lock className="w-4 h-4" />}
         />
       </div>
+
+      <div className="rounded-2xl border border-brand-100 bg-brand-50/70 p-4 space-y-3">
+        <div className="flex items-start gap-3">
+          <div className="rounded-xl bg-white p-2 text-brand-700 shadow-sm">
+            <ShieldCheck className="h-5 w-5" />
+          </div>
+          <div>
+            <p className="text-sm font-semibold text-slate-800">Identity verification is required</p>
+            <p className="mt-0.5 text-xs leading-relaxed text-slate-600">
+              Upload a clear Fayda National ID photo. Admin approval is required before borrowing. You only pay when you borrow a book.
+            </p>
+          </div>
+        </div>
+        <label htmlFor="fayda-id" className="block text-xs font-semibold uppercase tracking-wide text-slate-700">
+          Fayda National ID photo *
+        </label>
+        <input
+          id="fayda-id"
+          type="file"
+          accept="image/jpeg,image/png,image/webp"
+          required
+          onChange={e => setFaydaFile(e.target.files?.[0] ?? null)}
+          className="block w-full text-sm text-slate-600 file:mr-3 file:rounded-lg file:border-0 file:bg-white file:px-3 file:py-2 file:text-sm file:font-semibold file:text-brand-700 hover:file:bg-brand-100"
+        />
+        <p className="flex items-center gap-1.5 text-xs text-slate-500">
+          <IdCard className="h-3.5 w-3.5" />
+          JPG, PNG, or WebP; maximum 2 MB.
+          {faydaFile && <span className="truncate font-medium text-slate-700">{faydaFile.name}</span>}
+        </p>
+        <p className="text-xs leading-relaxed text-slate-500">
+          Your email is used for account details and sign-in. Admin approval is based on your Fayda ID, not email confirmation.
+        </p>
+      </div>
+
+      <p className="text-xs text-slate-500">
+        Password must contain at least 8 characters, including uppercase, lowercase, and a number.
+      </p>
 
       <div className="pt-2">
         <Button
@@ -284,7 +424,7 @@ function SignUpForm() {
       </div>
 
       <p className="text-center text-xs text-slate-500">
-        By signing up, you agree to return borrowed books before their due date.
+        Phone numbers must be valid. Your Fayda ID is reviewed by an admin; email confirmation is not part of approval.
       </p>
     </form>
   )

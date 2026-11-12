@@ -18,6 +18,12 @@ Overwrite when asked: `vite.config.ts`, `index.html`, `src/index.css`, `src/vite
 ## 3. Environment
 Copy `.env.example` to `.env.local` and fill in your Supabase URL and anon key.
 
+For an existing Supabase project, run each SQL migration in `supabase/migrations/` in filename order from **Supabase Dashboard → SQL Editor → New query**. The member identity migration creates the Fayda upload and profile-linking flow; the book-covers migration creates the public-read `book-covers` bucket with admin-only writes. Do not put a service-role key in the app.
+
+Members do not pay a membership fee. They submit a Fayda ID for account approval and pay only when they borrow a book.
+
+Email is collected for the account form and sign-in, but is not used to verify or approve a member. In Supabase, open **Authentication → Providers → Email** and turn off **Confirm email**; otherwise Supabase blocks sign-in until the user clicks a confirmation link. Existing unconfirmed accounts must be confirmed in Supabase or recreated after disabling this setting.
+
 ## 4. Icons
 Put `pwa-192.png` and `pwa-512.png` in `public/` (rename icon-192.png and icon-512.png
 from your decision-spinner repo).

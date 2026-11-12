@@ -1,4 +1,8 @@
 import { useEffect, useState, useCallback } from 'react'
+import {
+  AlertTriangle, BookCopy, BookOpen, CreditCard, DollarSign,
+  Library, Users, Wallet, Clock3
+} from 'lucide-react'
 import { supabase } from '../../lib/supabase'
 
 interface AdminStats {
@@ -15,13 +19,24 @@ interface AdminStats {
   checked_at: string
 }
 
-function StatCard({ emoji, label, value, sub }: { emoji: string; label: string; value: string | number; sub?: string }) {
+function StatCard({ icon: Icon, label, value, sub }: {
+  icon: typeof Library
+  label: string
+  value: string | number
+  sub?: string
+}) {
   return (
-    <div className="bg-white rounded-xl shadow-sm p-4 flex flex-col gap-1">
-      <div className="text-2xl">{emoji}</div>
-      <div className="text-xs text-slate-500 font-medium uppercase tracking-wide">{label}</div>
-      <div className="text-2xl font-bold text-brand-700">{value}</div>
-      {sub && <div className="text-xs text-slate-400">{sub}</div>}
+    <div className="rounded-2xl border border-slate-200/80 bg-white p-4 sm:p-5 shadow-sm">
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">{label}</div>
+          <div className="mt-2 text-2xl font-bold tracking-tight text-slate-900">{value}</div>
+        </div>
+        <div className="rounded-xl bg-brand-50 p-2.5 text-brand-700">
+          <Icon className="h-5 w-5" />
+        </div>
+      </div>
+      {sub && <div className="mt-2 text-xs text-slate-400">{sub}</div>}
     </div>
   )
 }
@@ -70,20 +85,23 @@ export default function DashboardPage() {
   if (!stats) return null
 
   return (
-    <div className="space-y-4">
-      <h1 className="text-xl font-bold text-brand-700">Dashboard</h1>
+    <div className="space-y-6">
+      <div>
+        <h1 className="text-2xl font-bold tracking-tight text-slate-900">Dashboard</h1>
+        <p className="mt-1 text-sm text-slate-500">A live overview of library activity and member requests.</p>
+      </div>
 
-      <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-5 gap-3">
-        <StatCard emoji="📚" label="Titles" value={stats.total_titles} />
-        <StatCard emoji="📖" label="Copies" value={stats.total_copies} />
-        <StatCard emoji="🔄" label="Active Loans" value={stats.active_loans} />
-        <StatCard emoji="⚠️" label="Overdue" value={stats.overdue_loans} />
-        <StatCard emoji="👥" label="Members" value={stats.members} />
-        <StatCard emoji="⏳" label="Pending Members" value={stats.pending_members} />
-        <StatCard emoji="💳" label="Pending Payments" value={stats.pending_payments} />
-        <StatCard emoji="💵" label="Rental Income" value={`${fmt(stats.rental_income)} ETB`} />
-        <StatCard emoji="🏷️" label="Collected Penalties" value={`${fmt(stats.penalties_collected)} ETB`} />
-        <StatCard emoji="📉" label="Outstanding" value={`${fmt(stats.penalties_outstanding)} ETB`} />
+      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-4">
+        <StatCard icon={Library} label="Book titles" value={stats.total_titles} />
+        <StatCard icon={BookCopy} label="Total copies" value={stats.total_copies} />
+        <StatCard icon={BookOpen} label="Active loans" value={stats.active_loans} />
+        <StatCard icon={AlertTriangle} label="Overdue loans" value={stats.overdue_loans} />
+        <StatCard icon={Users} label="Members" value={stats.members} />
+        <StatCard icon={Clock3} label="Pending members" value={stats.pending_members} />
+        <StatCard icon={CreditCard} label="Pending payments" value={stats.pending_payments} />
+        <StatCard icon={DollarSign} label="Rental income" value={`${fmt(stats.rental_income)} ETB`} />
+        <StatCard icon={Wallet} label="Penalties collected" value={`${fmt(stats.penalties_collected)} ETB`} />
+        <StatCard icon={Wallet} label="Penalties outstanding" value={`${fmt(stats.penalties_outstanding)} ETB`} />
       </div>
 
       {stats.checked_at && (

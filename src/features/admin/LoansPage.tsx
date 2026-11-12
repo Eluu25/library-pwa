@@ -1,6 +1,7 @@
 import { useEffect, useState, useCallback } from 'react'
-import { CheckCircle2, AlertTriangle, XCircle, RotateCcw } from 'lucide-react'
+import { CheckCircle2, AlertTriangle, XCircle, RotateCcw, BookOpen } from 'lucide-react'
 import { supabase } from '../../lib/supabase'
+import { useToast } from '../../components/ToastProvider'
 
 type LoanStatus = 'requested' | 'active' | 'returned' | 'lost' | 'rejected'
 
@@ -65,6 +66,7 @@ function StatusBadge({ status, isOverdue }: { status: LoanStatus; isOverdue?: bo
 }
 
 export default function LoansPage() {
+  const { notify } = useToast()
   const [loans, setLoans] = useState<LoanDetailed[]>([])
   const [profiles, setProfiles] = useState<Record<string, ProfileSimple>>({})
   const [loading, setLoading] = useState(true)
@@ -107,16 +109,16 @@ export default function LoansPage() {
     setActionLoading(id + '_return')
     const { data, error: err } = await supabase.rpc('return_loan', { p_loan: id })
     if (err) {
-      alert('Error returning loan: ' + err.message)
+      notify('error', 'Could not return loan', err.message)
     } else {
       if (data && typeof data === 'object' && 'penalty' in (data as Record<string, unknown>)) {
-        alert(`Loan returned. Penalty assessed: ${(data as Record<string, unknown>).penalty} ETB`)
+        notify('warning', 'Loan returned', `Penalty assessed: ${(data as Record<string, unknown>).penalty} ETB.`)
       } else if (data !== undefined && data !== null && typeof data === 'number' && data > 0) {
-        alert(`Loan returned. Penalty assessed: ${data} ETB`)
+        notify('warning', 'Loan returned', `Penalty assessed: ${data} ETB.`)
       } else {
-        alert('Loan returned successfully.')
+        notify('success', 'Loan returned', 'The book was marked as returned.')
       }
-      fetchData()
+      await fetchData()
     }
     setActionLoading(null)
   }
@@ -126,10 +128,10 @@ export default function LoansPage() {
     setActionLoading(id + '_lost')
     const { error: err } = await supabase.rpc('mark_lost', { p_loan: id })
     if (err) {
-      alert('Error marking lost: ' + err.message)
+      notify('error', 'Could not mark loan as lost', err.message)
     } else {
-      alert('Loan marked as lost.')
-      fetchData()
+      notify('success', 'Loan marked as lost', 'The replacement penalty has been applied.')
+      await fetchData()
     }
     setActionLoading(null)
   }
@@ -139,10 +141,10 @@ export default function LoansPage() {
     setActionLoading(id + '_settle')
     const { error: err } = await supabase.rpc('settle_penalty', { p_loan: id })
     if (err) {
-      alert('Error settling penalty: ' + err.message)
+      notify('error', 'Could not settle penalty', err.message)
     } else {
-      alert('Penalty settled successfully.')
-      fetchData()
+      notify('success', 'Penalty settled', 'The penalty payment was recorded.')
+      await fetchData()
     }
     setActionLoading(null)
   }
@@ -158,8 +160,13 @@ export default function LoansPage() {
   })
 
   return (
-    <div className="space-y-4">
-      <h1 className="text-xl font-bold text-brand-700">Loans Management</h1>
+    <div className="space-y-5">
+      <div>
+        <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight text-slate-900">
+          <BookOpen className="h-5 w-5 text-brand-600" /> Loans
+        </h1>
+        <p className="mt-1 text-sm text-slate-500">Track requests, active checkouts, returns, and overdue books.</p>
+      </div>
 
       {/* Tabs */}
       <div className="flex gap-2 flex-wrap">
@@ -169,8 +176,8 @@ export default function LoansPage() {
             onClick={() => setTab(t.key)}
             className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
               tab === t.key
-                ? 'bg-brand-700 text-white'
-                : 'bg-white text-slate-600 hover:bg-slate-100 border border-slate-200'
+                ? 'bg-brand-600 text-white shadow-sm'
+                : 'bg-white text-slate-600 hover:bg-slate-50 border border-slate-200'
             }`}
           >
             {t.label}
@@ -196,7 +203,7 @@ export default function LoansPage() {
               (loan.penalty_amount > 0 || loan.penalty_due > 0)
 
             return (
-              <div key={loan.id} className="bg-white rounded-xl shadow-sm p-4 space-y-3">
+              <div key={loan.id} className="bg-white rounded-2xl border border-slate-200/80 shadow-sm p-4 sm:p-5 space-y-3">
                 <div className="flex flex-wrap items-start justify-between gap-2">
                   <div>
                     <h2 className="font-semibold text-slate-800 text-base">{loan.title}</h2>

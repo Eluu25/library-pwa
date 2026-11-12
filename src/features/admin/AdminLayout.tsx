@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { NavLink, Outlet } from 'react-router-dom'
-import { BarChart3, Users, BookOpen, CreditCard, Library, LogOut, Menu, X } from 'lucide-react'
+import { BarChart3, Users, BookOpen, CreditCard, Library, LogOut, Menu, X, ShieldCheck } from 'lucide-react'
 import { supabase } from '../../lib/supabase'
 
 const navItems = [
@@ -21,8 +21,8 @@ function NavItems({ onClose }: { onClose?: () => void }) {
           end={end}
           onClick={onClose}
           className={({ isActive }) =>
-            `flex items-center gap-3 px-4 py-2.5 rounded-lg text-sm font-medium transition-colors ${
-              isActive ? 'bg-brand-500 text-white' : 'text-white/80 hover:bg-white/10'
+            `flex items-center gap-3 px-3.5 py-3 rounded-xl text-sm font-medium transition-colors ${
+              isActive ? 'bg-brand-50 text-brand-800 shadow-xs' : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
             }`
           }
         >
@@ -38,50 +38,72 @@ export default function AdminLayout() {
   const [drawerOpen, setDrawerOpen] = useState(false)
 
   return (
-    <div className="min-h-screen bg-paper flex flex-col">
-      {/* Top bar */}
-      <header className="bg-brand-700 text-white px-4 py-3 flex items-center justify-between shadow-md z-30">
+    <div className="min-h-screen bg-slate-50 flex flex-col">
+      <header className="sticky top-0 bg-white/95 backdrop-blur border-b border-slate-200 px-4 sm:px-6 py-3 flex items-center justify-between z-30">
         <div className="flex items-center gap-3">
           <button
-            className="lg:hidden p-1 rounded hover:bg-white/10"
+            className="lg:hidden p-2 rounded-xl text-slate-600 hover:bg-slate-100"
             onClick={() => setDrawerOpen(o => !o)}
             aria-label="Toggle menu"
           >
             {drawerOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
           </button>
-          <span className="font-bold text-base tracking-tight">📚 Community Library — Admin</span>
+          <div className="flex items-center gap-2.5">
+            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-brand-600 text-white">
+              <Library className="h-5 w-5" />
+            </div>
+            <div>
+              <p className="font-bold tracking-tight text-slate-900">Community Library</p>
+              <p className="text-[11px] font-medium uppercase tracking-wider text-slate-500">Administration</p>
+            </div>
+          </div>
         </div>
         <button
           onClick={() => supabase.auth.signOut()}
-          className="flex items-center gap-1.5 text-white/80 hover:text-white text-sm px-3 py-1.5 rounded hover:bg-white/10 transition-colors"
+          className="flex items-center gap-2 text-sm font-medium text-slate-600 hover:text-red-700 px-3 py-2 rounded-xl hover:bg-red-50 transition-colors"
         >
           <LogOut className="h-4 w-4" />
-          Sign out
+          <span className="hidden sm:inline">Sign out</span>
         </button>
       </header>
 
       <div className="flex flex-1 overflow-hidden">
-        {/* Desktop sidebar */}
-        <aside className="hidden lg:flex flex-col w-56 bg-brand-700 py-4 px-3 gap-1 shrink-0">
-          <NavItems />
+        <aside className="hidden lg:flex flex-col w-64 bg-white border-r border-slate-200 p-4 shrink-0">
+          <p className="px-3.5 pb-3 pt-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-400">Workspace</p>
+          <nav className="flex flex-col gap-1">
+            <NavItems />
+          </nav>
+          <div className="mt-auto rounded-2xl bg-brand-50 p-4">
+            <ShieldCheck className="h-5 w-5 text-brand-700" />
+            <p className="mt-2 text-sm font-semibold text-slate-800">Member-first library</p>
+            <p className="mt-1 text-xs leading-relaxed text-slate-600">Review identity documents before approving new applications.</p>
+          </div>
         </aside>
 
-        {/* Mobile drawer overlay */}
         {drawerOpen && (
-          <div className="lg:hidden fixed inset-0 z-20 flex">
+          <div className="lg:hidden fixed inset-0 z-40 flex">
             <div
-              className="absolute inset-0 bg-black/50"
+              className="absolute inset-0 bg-slate-950/40 backdrop-blur-[2px]"
               onClick={() => setDrawerOpen(false)}
             />
-            <aside className="relative z-10 flex flex-col w-56 bg-brand-700 py-4 px-3 gap-1 shadow-xl">
-              <NavItems onClose={() => setDrawerOpen(false)} />
+            <aside className="relative z-10 flex flex-col w-72 bg-white p-4 shadow-xl">
+              <div className="flex items-center justify-between px-2 pb-5">
+                <span className="font-bold text-slate-900">Navigation</span>
+                <button onClick={() => setDrawerOpen(false)} aria-label="Close menu" className="rounded-lg p-2 text-slate-500 hover:bg-slate-100">
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
+              <nav className="flex flex-col gap-1">
+                <NavItems onClose={() => setDrawerOpen(false)} />
+              </nav>
             </aside>
           </div>
         )}
 
-        {/* Main content */}
-        <main className="flex-1 overflow-y-auto p-4">
+        <main className="flex-1 min-w-0 overflow-y-auto p-4 sm:p-6 lg:p-8">
+          <div className="mx-auto max-w-7xl">
           <Outlet />
+          </div>
         </main>
       </div>
     </div>

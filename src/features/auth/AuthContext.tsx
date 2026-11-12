@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState, ReactNode } from 'react'
+import { createContext, useContext, useEffect, useState, ReactNode, useCallback } from 'react'
 import { Session } from '@supabase/supabase-js'
 import { supabase } from '../../lib/supabase'
 import { Profile } from '../../types'
@@ -22,9 +22,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setProfile(data ?? null)
   }
 
-  async function refreshProfile() {
+  const refreshProfile = useCallback(async () => {
     if (session?.user.id) await fetchProfile(session.user.id)
-  }
+  }, [session?.user.id])
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {

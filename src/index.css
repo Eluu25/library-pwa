@@ -3,10 +3,9 @@
 @theme {
   --font-sans: "Bricolage Grotesque", system-ui, -apple-system, "Segoe UI", sans-serif;
 
-  /* Warm cream page background */
-  --color-paper: #F7F4EC;
-  --color-paper-light: #FDFCF8;
-  --color-paper-dark: #ECE7DA;
+  --color-paper: #111915;
+  --color-paper-light: #1b2620;
+  --color-paper-dark: #26332c;
 
   /* Full brand green scale (anchor: #0F7B6C) */
   --color-brand-50: #eef8f6;
@@ -36,6 +35,109 @@
 
 body {
   background-color: var(--color-paper);
-  color: #1e293b;
+  color: #e7e2d6;
   font-family: var(--font-sans);
+}
+
+.bg-white {
+  background-color: #1b2721 !important;
+}
+
+.bg-white\/95 {
+  background-color: rgb(27 39 33 / 95%) !important;
+}
+
+.bg-slate-50 {
+  background-color: #202c25 !important;
+}
+
+.bg-slate-100 {
+  background-color: #29362f !important;
+}
+
+.bg-slate-200 {
+  background-color: #37463d !important;
+}
+
+.text-slate-900 {
+  color: #f0ecdf !important;
+}
+
+.text-slate-800 {
+  color: #e2ddcf !important;
+}
+
+.text-slate-700 {
+  color: #d0cbbb !important;
+}
+
+.text-slate-600 {
+  color: #bbb9ab !important;
+}
+
+.text-slate-500 {
+  color: #a4a99b !important;
+}
+
+.text-slate-400 {
+  color: #899589 !important;
+}
+
+.text-brand-900,
+.text-brand-800,
+.text-brand-700,
+.text-brand-600,
+.text-brand-500 {
+  color: #78cdb5 !important;
+}
+
+.bg-brand-50 {
+  background-color: #19372f !important;
+}
+
+.bg-brand-100 {
+  background-color: #20453a !important;
+}
+
+.border-slate-50,
+.border-slate-100,
+.border-slate-200,
+.border-slate-300 {
+  border-color: #35443b !important;
+}
+
+.border-slate-200\/80,
+.border-slate-200\/50 {
+  border-color: rgb(53 68 59 / 80%) !important;
+}
+
+input,
+textarea,
+select {
+  color-scheme: dark;
+}
+
+input::placeholder,
+textarea::placeholder {
+  color: #899589;
+}
+
+* {
+  scrollbar-color: #52635a #1b2721;
+  scrollbar-width: thin;
+}
+
+*::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+*::-webkit-scrollbar-track {
+  background: #1b2721;
+}
+
+*::-webkit-scrollbar-thumb {
+  background: #52635a;
+  border: 2px solid #1b2721;
+  border-radius: 999px;
 }

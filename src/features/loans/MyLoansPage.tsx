@@ -1,9 +1,10 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { Link } from 'react-router-dom'
 import { Clock, AlertCircle, BookOpen, RefreshCw, AlertTriangle } from 'lucide-react'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../auth/AuthContext'
 import PenaltyPayModal from './PenaltyPayModal'
+import { useToast } from '../../components/ToastProvider'
 
 // Types mirrored from src/types/index.ts
 type LoanStatus = 'requested' | 'active' | 'returned' | 'lost' | 'rejected'
@@ -18,6 +19,8 @@ interface LoanDetailed {
 
 export default function MyLoansPage() {
   const { profile } = useAuth()
+  const { notify } = useToast()
+  const alertedOverdueLoans = useRef(new Set<string>())
   const [loans, setLoans] = useState<LoanDetailed[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -35,13 +38,20 @@ export default function MyLoansPage() {
         .order('requested_at', { ascending: false })
 
       if (err) throw err
-      setLoans((data as LoanDetailed[]) ?? [])
+      const nextLoans = (data as LoanDetailed[]) ?? []
+      const newOverdue = nextLoans.filter(loan => loan.is_overdue && !alertedOverdueLoans.current.has(loan.id))
+      newOverdue.forEach(loan => alertedOverdueLoans.current.add(loan.id))
+      if (newOverdue.length > 0) {
+        const title = newOverdue.length === 1 ? newOverdue[0].title : `${newOverdue.length} books`
+        notify('warning', 'Overdue book reminder', `${title} ${newOverdue.length === 1 ? 'is' : 'are'} overdue. Please return ${newOverdue.length === 1 ? 'it' : 'them'} as soon as possible to avoid additional penalties.`)
+      }
+      setLoans(nextLoans)
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Failed to fetch loans.')
     } finally {
       setLoading(false)
     }
-  }, [profile?.id])
+  }, [notify, profile?.id])
 
   useEffect(() => {
     fetchLoans()

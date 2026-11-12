@@ -1,9 +1,10 @@
-import { lazy, Suspense } from 'react'
+import { lazy, Suspense, useEffect, useRef } from 'react'
 import { Routes, Route, Navigate, useLocation } from 'react-router-dom'
 import { AuthProvider, useAuth } from './features/auth/AuthContext'
 import Spinner from './components/Spinner'
 import Layout from './components/Layout'
 import { supabase } from './lib/supabase'
+import { ToastProvider, useToast } from './components/ToastProvider'
 
 // Lazy imports for all feature pages
 const AuthPage = lazy(() => import('./features/auth/AuthPage'))
@@ -36,9 +37,32 @@ function ProfilePage() {
 }
 
 function AppRoutes() {
-  const { session, profile, loading } = useAuth()
+  const { session, profile, loading, refreshProfile } = useAuth()
+  const { notify } = useToast()
+  const previousStatus = useRef<{ userId: string; status: string } | null>(null)
   // useLocation is consumed here to satisfy react-router context
   useLocation()
+
+  useEffect(() => {
+    if (!session?.user.id || profile?.id !== session.user.id || !profile.status) return
+
+    const previous = previousStatus.current
+    if (previous?.userId === profile.id && previous.status === 'pending') {
+      if (profile.status === 'approved') {
+        notify('success', 'Application approved', 'Your account is approved. You can now borrow books.')
+      } else if (profile.status === 'rejected') {
+        notify('error', 'Application update', profile.reject_reason || 'Your application was not approved.')
+      }
+    }
+
+    previousStatus.current = { userId: profile.id, status: profile.status }
+  }, [notify, profile, session?.user.id])
+
+  useEffect(() => {
+    if (!session?.user.id || profile?.status !== 'pending') return
+    const timer = window.setInterval(() => { void refreshProfile() }, 30000)
+    return () => window.clearInterval(timer)
+  }, [profile?.status, refreshProfile, session?.user.id])
 
   // 1. Loading state
   if (loading) {
@@ -151,16 +175,18 @@ function AppRoutes() {
 
 export default function App() {
   return (
-    <AuthProvider>
-      <Suspense
-        fallback={
-          <div className="min-h-screen bg-paper flex items-center justify-center">
-            <Spinner size="lg" />
-          </div>
-        }
-      >
-        <AppRoutes />
-      </Suspense>
-    </AuthProvider>
+    <ToastProvider>
+      <AuthProvider>
+        <Suspense
+          fallback={
+            <div className="min-h-screen bg-paper flex items-center justify-center">
+              <Spinner size="lg" />
+            </div>
+          }
+        >
+          <AppRoutes />
+        </Suspense>
+      </AuthProvider>
+    </ToastProvider>
   )
 }

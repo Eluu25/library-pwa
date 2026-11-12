@@ -1,6 +1,7 @@
 import { useState, useRef } from 'react'
 import { X, AlertCircle, CheckCircle2 } from 'lucide-react'
 import { supabase } from '../../lib/supabase'
+import { useToast } from '../../components/ToastProvider'
 
 // Types mirrored from src/types/index.ts
 interface BookCatalog {
@@ -27,6 +28,7 @@ interface LoanRequestModalProps {
 }
 
 export default function LoanRequestModal({ book, profile, onClose, onSuccess }: LoanRequestModalProps) {
+  const { notify } = useToast()
   const [days, setDays] = useState(1)
   const [txnId, setTxnId] = useState('')
   const [proofFile, setProofFile] = useState<File | null>(null)
@@ -64,6 +66,7 @@ export default function LoanRequestModal({ book, profile, onClose, onSuccess }: 
       if (rpcErr) throw new Error(rpcErr.message)
 
       setSuccess(true)
+      notify('success', 'Loan request submitted', 'Your request is waiting for admin approval.')
       setTimeout(() => { onSuccess(); onClose() }, 1500)
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Something went wrong.')
@@ -73,7 +76,7 @@ export default function LoanRequestModal({ book, profile, onClose, onSuccess }: 
   }
 
   return (
-    <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+    <div className="fixed inset-0 bg-black/50 z-[70] flex items-center justify-center p-4">
       <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm">
         {/* Header */}
         <div className="flex items-center justify-between p-4 border-b border-slate-100">

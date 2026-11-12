@@ -9,7 +9,7 @@ import BookDetailModal from './BookDetailModal'
 interface BookCatalog {
   id: string; title: string; author: string; pub_year: number | null
   edition: string | null; price_per_day: number; replacement_price: number
-  total_copies: number; created_at: string
+  total_copies: number; cover_url: string | null; created_at: string
   available_copies: number; waiting_count: number
 }
 
@@ -61,7 +61,11 @@ export default function CatalogPage() {
   })
 
   return (
-    <div className="p-4 max-w-6xl mx-auto space-y-4">
+    <div className="p-4 sm:p-6 max-w-6xl mx-auto space-y-5">
+      <div>
+        <h1 className="text-2xl font-bold tracking-tight text-slate-900">Explore the library</h1>
+        <p className="mt-1 text-sm text-slate-500">Find your next read from the community collection.</p>
+      </div>
       {/* Top Bar / Controls */}
       <div className="flex flex-col sm:flex-row gap-3 items-stretch sm:items-center justify-between">
         <div className="relative flex-1">
@@ -71,7 +75,8 @@ export default function CatalogPage() {
             value={searchTerm}
             onChange={e => setSearchTerm(e.target.value)}
             placeholder="Search by title or author..."
-            className="w-full bg-white border border-slate-200 rounded-xl pl-9 pr-3 py-2 text-sm text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-brand-500 shadow-sm"
+            aria-label="Search books by title or author"
+            className="w-full bg-white border border-slate-200 rounded-2xl pl-10 pr-3 py-3 text-sm text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-brand-500 shadow-sm"
           />
         </div>
 

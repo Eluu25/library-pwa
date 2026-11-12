@@ -43,7 +43,6 @@ create table public.settings (
 insert into public.settings(key, value, description) values
   ('penalty_per_day',     '10',  'Overdue penalty in ETB per day'),
   ('max_loan_days',       '14',  'Maximum days for one loan'),
-  ('membership_fee',      '100', 'One-time membership fee in ETB (change to your real fee)'),
   ('waitlist_hold_hours', '24',  'Hours a notified member can claim a returned book');
 
 create table public.profiles (
@@ -70,11 +69,13 @@ create table public.books (
   author            text not null,
   pub_year          int check (pub_year between 1000 and 2100),
   edition           text,                               -- '1st', '2nd', ...
+  cover_url         text,
   price_per_day     numeric(10,2) not null default 0 check (price_per_day >= 0),
   replacement_price numeric(10,2) not null default 0 check (replacement_price >= 0),
   total_copies      int not null default 1 check (total_copies >= 0),
   created_at        timestamptz not null default now()
 );
+alter table public.books add column if not exists cover_url text;
 create index idx_books_title_trgm  on public.books using gin (title  extensions.gin_trgm_ops);
 create index idx_books_author_trgm on public.books using gin (author extensions.gin_trgm_ops);
 
@@ -226,15 +227,25 @@ create trigger on_auth_user_created after insert on auth.users
 -- ---------------------------------------------------------------------
 -- 6. MEMBER RPCs
 -- ---------------------------------------------------------------------
--- Registration step 2: Fayda photo + membership fee screenshot
-create or replace function public.submit_membership(p_fayda text, p_txn text, p_proof text) returns void
+-- Submit identity verification. Membership has no fee; payment is collected per loan.
+create or replace function public.submit_member_verification(p_fayda text) returns void
 language plpgsql security definer set search_path = public as $$
 begin
-  update public.profiles set fayda_path = p_fayda, status = 'pending', reject_reason = null
-   where id = auth.uid() and role = 'member';
-  if not found then raise exception 'Only members can submit a membership'; end if;
-  insert into public.payments(user_id, type, amount, txn_id, proof_path)
-  values (auth.uid(), 'membership', public.setting_num('membership_fee'), p_txn, p_proof);
+  if auth.uid() is null then raise exception 'Sign in before submitting identity verification'; end if;
+  if p_fayda is null or (storage.foldername(p_fayda))[1] <> auth.uid()::text then
+    raise exception 'Fayda ID path must belong to the signed-in user';
+  end if;
+  if not exists (
+    select 1 from storage.objects
+     where bucket_id = 'fayda-ids' and name = p_fayda
+  ) then
+    raise exception 'Fayda ID file was not found in private storage';
+  end if;
+  update public.profiles
+     set fayda_path = p_fayda, status = 'pending', reject_reason = null
+   where id = auth.uid() and role = 'member' and status <> 'approved';
+  if not found then raise exception 'Member profile not found or already approved'; end if;
+  perform public.log_action('identity_submitted', 'profile', auth.uid());
 end $$;
 
 create or replace function public.request_loan(p_book uuid, p_days int, p_txn text, p_proof text) returns uuid
@@ -309,11 +320,6 @@ begin
          approved_by = auth.uid()
    where id = p_user and role = 'member' and fayda_path is not null;
   if not found then raise exception 'Member not found or no ID uploaded'; end if;
-  update public.payments
-     set status = (case when p_approve then 'confirmed' else 'rejected' end)::public.payment_status,
-         reject_reason = case when p_approve then null else p_reason end,
-         reviewed_by = auth.uid(), reviewed_at = now()
-   where user_id = p_user and type = 'membership' and status = 'pending';
   perform public.log_action(case when p_approve then 'member_approved' else 'member_rejected' end, 'profile', p_user, jsonb_build_object('reason', p_reason));
 end $$;
 
@@ -326,7 +332,7 @@ begin
   if not public.is_admin() then raise exception 'Admins only'; end if;
   select * into pay from public.payments where id = p_payment for update;
   if not found or pay.status <> 'pending' then raise exception 'Payment not found or already reviewed'; end if;
-  if pay.type = 'membership' then raise exception 'Use review_member for membership payments'; end if;
+  if pay.type = 'membership' then raise exception 'Legacy membership payments are not supported'; end if;
   update public.payments
      set status = (case when p_approve then 'confirmed' else 'rejected' end)::public.payment_status,
          reject_reason = case when p_approve then null else p_reason end,
@@ -453,13 +459,14 @@ create policy "waitlist read own or admin" on public.waitlist for select to auth
 create policy "audit admin read"           on public.audit_log for select to authenticated using (public.is_admin());
 
 -- ---------------------------------------------------------------------
--- 9. STORAGE BUCKETS (private, images only, 2 MB max)
+-- 9. STORAGE BUCKETS
 -- ---------------------------------------------------------------------
 insert into storage.buckets(id, name, public, file_size_limit, allowed_mime_types) values
   ('fayda-ids',      'fayda-ids',      false, 2097152, array['image/jpeg','image/png','image/webp']),
-  ('payment-proofs', 'payment-proofs', false, 2097152, array['image/jpeg','image/png','image/webp'])
+  ('payment-proofs', 'payment-proofs', false, 2097152, array['image/jpeg','image/png','image/webp']),
+  ('book-covers',    'book-covers',    true,  2097152, array['image/jpeg','image/png','image/webp'])
 on conflict (id) do update
-  set public = false, file_size_limit = excluded.file_size_limit, allowed_mime_types = excluded.allowed_mime_types;
+  set public = excluded.public, file_size_limit = excluded.file_size_limit, allowed_mime_types = excluded.allowed_mime_types;
 
 create policy "files: upload to own folder" on storage.objects for insert to authenticated
   with check (bucket_id in ('fayda-ids','payment-proofs') and (storage.foldername(name))[1] = auth.uid()::text);
@@ -467,6 +474,15 @@ create policy "files: read own or admin" on storage.objects for select to authen
   using (bucket_id in ('fayda-ids','payment-proofs') and ((storage.foldername(name))[1] = auth.uid()::text or public.is_admin()));
 create policy "files: admin delete" on storage.objects for delete to authenticated
   using (bucket_id in ('fayda-ids','payment-proofs') and public.is_admin());
+create policy "book covers: public read" on storage.objects for select
+  using (bucket_id = 'book-covers');
+create policy "book covers: admin upload" on storage.objects for insert to authenticated
+  with check (bucket_id = 'book-covers' and public.is_admin());
+create policy "book covers: admin update" on storage.objects for update to authenticated
+  using (bucket_id = 'book-covers' and public.is_admin())
+  with check (bucket_id = 'book-covers' and public.is_admin());
+create policy "book covers: admin delete" on storage.objects for delete to authenticated
+  using (bucket_id = 'book-covers' and public.is_admin());
 
 -- ---------------------------------------------------------------------
 -- 10. PERMISSIONS
@@ -479,5 +495,6 @@ grant execute on all functions in schema public to authenticated;
 revoke execute on function public.log_action(text, text, uuid, jsonb) from authenticated;
 revoke execute on function public.advance_waitlist(uuid)              from authenticated;
 revoke execute on function public.handle_new_user()                   from authenticated;
+grant execute on function public.submit_member_verification(text)      to authenticated;
 -- the keep-alive ping may also be called without logging in
 grant execute on function public.keep_alive() to anon;

@@ -7,7 +7,7 @@ import LoanRequestModal from '../loans/LoanRequestModal'
 interface BookCatalog {
   id: string; title: string; author: string; pub_year: number | null
   edition: string | null; price_per_day: number; replacement_price: number
-  total_copies: number; created_at: string
+  total_copies: number; cover_url: string | null; created_at: string
   available_copies: number; waiting_count: number
 }
 
@@ -98,7 +98,7 @@ export default function BookDetailModal({ book, onClose, profile, onRefresh }: B
 
   return (
     <>
-      <div className="fixed inset-0 bg-black/50 z-50 flex items-end sm:items-center justify-center">
+      <div className="fixed inset-0 bg-black/50 z-[60] flex items-end sm:items-center justify-center p-0 sm:p-4">
         <div className="bg-white w-full sm:max-w-md rounded-t-3xl sm:rounded-2xl shadow-xl max-h-[90vh] overflow-y-auto">
           {/* Header */}
           <div className="sticky top-0 bg-white flex items-center justify-between p-4 border-b border-slate-100 z-10">
@@ -111,7 +111,14 @@ export default function BookDetailModal({ book, onClose, profile, onRefresh }: B
             </button>
           </div>
 
-          <div className="p-4 space-y-4">
+          <div className="p-4 space-y-4 pb-8 sm:pb-4">
+            {book.cover_url && (
+              <img
+                src={book.cover_url}
+                alt={`Cover of ${book.title}`}
+                className="h-52 w-full rounded-2xl bg-brand-50 object-cover"
+              />
+            )}
             {/* Title & Author */}
             <div>
               <h2 className="text-xl font-bold text-slate-800 leading-snug">{book.title}</h2>

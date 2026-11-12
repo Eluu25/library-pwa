@@ -15,7 +15,7 @@ export interface Profile {
 export interface Book {
   id: string; title: string; author: string; pub_year: number | null
   edition: string | null; price_per_day: number; replacement_price: number
-  total_copies: number; created_at: string
+  total_copies: number; cover_url: string | null; created_at: string
 }
 export interface BookCatalog extends Book {
   available_copies: number; waiting_count: number

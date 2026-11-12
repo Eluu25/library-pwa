@@ -1,7 +1,7 @@
 import { useEffect, useState, useCallback } from 'react'
-import { Link } from 'react-router-dom'
-import { Eye, CheckCircle2, XCircle, CreditCard, AlertCircle } from 'lucide-react'
+import { Eye, CheckCircle2, XCircle, CreditCard } from 'lucide-react'
 import { supabase } from '../../lib/supabase'
+import { useToast } from '../../components/ToastProvider'
 
 type PaymentType = 'membership' | 'loan' | 'penalty'
 type PaymentStatus = 'pending' | 'confirmed' | 'rejected'
@@ -59,6 +59,7 @@ function TypeBadge({ type }: { type: PaymentType }) {
 }
 
 export default function PaymentsPage() {
+  const { notify } = useToast()
   const [payments, setPayments] = useState<Payment[]>([])
   const [profiles, setProfiles] = useState<Record<string, ProfileSimple>>({})
   const [loading, setLoading] = useState(true)
@@ -101,7 +102,7 @@ export default function PaymentsPage() {
       .from('payment-proofs')
       .createSignedUrl(path, 60)
     if (err) {
-      alert('Could not get signed URL: ' + err.message)
+      notify('error', 'Could not open payment proof', err.message)
       return
     }
     window.open(data.signedUrl, '_blank')
@@ -112,9 +113,10 @@ export default function PaymentsPage() {
     setActionLoading(id + '_confirm')
     const { error: err } = await supabase.rpc('review_payment', { p_payment: id, p_approve: true })
     if (err) {
-      alert('Error confirming payment: ' + err.message)
+      notify('error', 'Could not confirm payment', err.message)
     } else {
-      fetchData()
+      notify('success', 'Payment confirmed', 'The payment has been approved.')
+      await fetchData()
     }
     setActionLoading(null)
   }
@@ -129,9 +131,10 @@ export default function PaymentsPage() {
       p_reason: reason,
     })
     if (err) {
-      alert('Error rejecting payment: ' + err.message)
+      notify('error', 'Could not reject payment', err.message)
     } else {
-      fetchData()
+      notify('success', 'Payment rejected', 'The payment has been rejected.')
+      await fetchData()
     }
     setActionLoading(null)
   }
@@ -142,11 +145,12 @@ export default function PaymentsPage() {
   })
 
   return (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <h1 className="text-xl font-bold text-brand-700 flex items-center gap-2">
-          <CreditCard className="h-5 w-5" /> Payments Management
+    <div className="space-y-5">
+      <div>
+        <h1 className="text-2xl font-bold tracking-tight text-slate-900 flex items-center gap-2">
+          <CreditCard className="h-5 w-5 text-brand-600" /> Payments
         </h1>
+        <p className="mt-1 text-sm text-slate-500">Review payments for book loans and penalties.</p>
       </div>
 
       {/* Tabs */}
@@ -155,8 +159,8 @@ export default function PaymentsPage() {
           onClick={() => setTab('pending')}
           className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
             tab === 'pending'
-              ? 'bg-brand-700 text-white'
-              : 'bg-white text-slate-600 hover:bg-slate-100 border border-slate-200'
+              ? 'bg-brand-600 text-white shadow-sm'
+              : 'bg-white text-slate-600 hover:bg-slate-50 border border-slate-200'
           }`}
         >
           Pending
@@ -165,8 +169,8 @@ export default function PaymentsPage() {
           onClick={() => setTab('all')}
           className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
             tab === 'all'
-              ? 'bg-brand-700 text-white'
-              : 'bg-white text-slate-600 hover:bg-slate-100 border border-slate-200'
+              ? 'bg-brand-600 text-white shadow-sm'
+              : 'bg-white text-slate-600 hover:bg-slate-50 border border-slate-200'
           }`}
         >
           All Payments
@@ -187,15 +191,17 @@ export default function PaymentsPage() {
         <div className="space-y-3">
           {filtered.map(p => {
             const member = profiles[p.user_id]
-            const isMembership = p.type === 'membership'
-            const isPendingLoanOrPenalty = p.status === 'pending' && !isMembership
+            const isLegacyMembership = p.type === 'membership'
+            const isPendingLoanOrPenalty = p.status === 'pending' && !isLegacyMembership
 
             return (
-              <div key={p.id} className="bg-white rounded-xl shadow-sm p-4 space-y-3">
+              <div key={p.id} className="bg-white rounded-2xl border border-slate-200/80 shadow-sm p-4 sm:p-5 space-y-3">
                 <div className="flex flex-wrap items-start justify-between gap-2">
                   <div className="space-y-1">
                     <div className="flex items-center gap-2">
-                      <TypeBadge type={p.type} />
+                      {isLegacyMembership
+                        ? <span className="inline-block rounded-full bg-slate-100 px-2 py-0.5 text-xs font-semibold text-slate-600">Legacy record</span>
+                        : <TypeBadge type={p.type} />}
                       <span className="text-lg font-bold text-slate-800">{p.amount} ETB</span>
                     </div>
                     <div className="text-sm font-medium text-slate-700">
@@ -241,16 +247,9 @@ export default function PaymentsPage() {
                   </div>
                 )}
 
-                {isMembership && p.status === 'pending' && (
-                  <div className="flex items-center gap-1.5 text-xs text-amber-700 bg-amber-50 p-2 rounded-lg">
-                    <AlertCircle className="h-4 w-4 shrink-0" />
-                    <span>
-                      Membership payment approval is handled together with member application in the{' '}
-                      <Link to="/admin/members" className="font-semibold underline">
-                        Members page
-                      </Link>
-                      .
-                    </span>
+                {isLegacyMembership && (
+                  <div className="rounded-lg border border-slate-200 bg-slate-50 p-2.5 text-xs text-slate-600">
+                    Legacy membership record. Members do not pay a membership fee; payments are only for borrowing books or settling penalties.
                   </div>
                 )}
 
