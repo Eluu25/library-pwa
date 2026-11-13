@@ -34,11 +34,14 @@ create policy "digital_access read own or admin" on public.digital_access
   for select to authenticated using (user_id = auth.uid() or public.is_admin());
 
 -- 5. Recreate books_catalog view to expose pdf_path and digital_price
+drop view if exists public.books_catalog cascade;
 create or replace view public.books_catalog as
 select b.*,
        public.free_copies(b.id) as available_copies,
        (select count(*) from public.waitlist w where w.book_id = b.id and w.status = 'waiting')::int as waiting_count
 from public.books b;
+
+grant select on public.books_catalog to authenticated;
 
 -- 6. Setup private storage bucket for PDFs
 insert into storage.buckets(id, name, public, file_size_limit, allowed_mime_types)
