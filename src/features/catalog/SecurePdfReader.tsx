@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, useCallback } from 'react'
 import {
   X, ChevronLeft, ChevronRight, ZoomIn, ZoomOut, Maximize2,
-  Minimize2, Shield, AlertTriangle
+  Minimize2, Shield, AlertTriangle, RotateCcw
 } from 'lucide-react'
 import * as pdfjsLib from 'pdfjs-dist'
 
@@ -27,11 +27,14 @@ export default function SecurePdfReader({
 }: SecurePdfReaderProps) {
   const containerRef = useRef<HTMLDivElement>(null)
   const canvasRef = useRef<HTMLCanvasElement>(null)
+  const touchStartX = useRef<number | null>(null)
+  const touchStartY = useRef<number | null>(null)
 
   const [pdfDoc, setPdfDoc] = useState<pdfjsLib.PDFDocumentProxy | null>(null)
   const [currentPage, setCurrentPage] = useState(1)
   const [totalPages, setTotalPages] = useState(0)
-  const [scale, setScale] = useState(1.2)
+  const [scale, setScale] = useState(1.0)
+  const [baseFitScale, setBaseFitScale] = useState(1.0)
   const [loading, setLoading] = useState(true)
   const [pageRendering, setPageRendering] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -60,7 +63,7 @@ export default function SecurePdfReader({
     return () => window.removeEventListener('keydown', handleKeyDown)
   }, [totalPages, currentPage, isFullscreen])
 
-  // Load PDF Document
+  // Load PDF Document & calculate initial fit scale for mobile / iPhone / desktop
   useEffect(() => {
     let isCancelled = false
     setLoading(true)
@@ -72,12 +75,28 @@ export default function SecurePdfReader({
     })
 
     loadingTask.promise
-      .then(doc => {
+      .then(async doc => {
         if (isCancelled) return
         setPdfDoc(doc)
         setTotalPages(doc.numPages)
         setCurrentPage(1)
         setPageInput('1')
+
+        // Calculate auto-fit scale based on current device screen width
+        try {
+          const firstPage = await doc.getPage(1)
+          const baseViewport = firstPage.getViewport({ scale: 1.0 })
+          const screenWidth = window.innerWidth
+          // Leave comfortable margins (16px on mobile, 48px on desktop)
+          const margin = screenWidth < 640 ? 24 : 48
+          const targetWidth = Math.min(screenWidth - margin, 900)
+          const computedScale = Math.max(0.4, Math.min(targetWidth / baseViewport.width, 2.5))
+          setScale(computedScale)
+          setBaseFitScale(computedScale)
+        } catch {
+          setScale(1.0)
+        }
+
         setLoading(false)
       })
       .catch(err => {
@@ -94,10 +113,11 @@ export default function SecurePdfReader({
   }, [pdfUrl])
 
   // Draw security watermark onto the canvas
-  const drawWatermark = useCallback((ctx: CanvasRenderingContext2D, width: number, height: number) => {
+  const drawWatermark = useCallback((ctx: CanvasRenderingContext2D, width: number, height: number, dpr: number) => {
     ctx.save()
     ctx.globalAlpha = 0.12
-    ctx.font = 'bold 16px sans-serif'
+    const fontSize = Math.max(14 * dpr, 16)
+    ctx.font = `bold ${fontSize}px sans-serif`
     ctx.fillStyle = '#0f172a'
 
     const watermarkText = `CONFIDENTIAL • ${userName} (${userEmail}) • COMMUNITY LIBRARY`
@@ -106,8 +126,8 @@ export default function SecurePdfReader({
     ctx.translate(width / 2, height / 2)
     ctx.rotate((-35 * Math.PI) / 180)
 
-    const stepY = 120
-    const stepX = 400
+    const stepY = 140 * dpr
+    const stepX = 420 * dpr
     for (let y = -height; y < height; y += stepY) {
       for (let x = -width; x < width; x += stepX) {
         ctx.fillText(watermarkText, x, y)
@@ -117,7 +137,7 @@ export default function SecurePdfReader({
     ctx.restore()
   }, [userName, userEmail])
 
-  // Render current page
+  // Render current page with Retina / High-DPI support (iPhones & 4K displays)
   const renderPage = useCallback(async (pageNum: number) => {
     if (!pdfDoc || !canvasRef.current) return
     setPageRendering(true)
@@ -129,20 +149,31 @@ export default function SecurePdfReader({
       const ctx = canvas.getContext('2d')
       if (!ctx) return
 
+      // Support iPhone Retina displays (DPR 2 or 3) for crisp text rendering
+      const dpr = typeof window !== 'undefined' ? (window.devicePixelRatio || 1) : 1
       const viewport = page.getViewport({ scale })
-      canvas.height = viewport.height
-      canvas.width = viewport.width
+
+      // Set physical canvas pixel dimensions scaled by DPR
+      canvas.width = Math.floor(viewport.width * dpr)
+      canvas.height = Math.floor(viewport.height * dpr)
+
+      // CSS display size (stays responsive to container)
+      canvas.style.width = `${Math.floor(viewport.width)}px`
+      canvas.style.height = `${Math.floor(viewport.height)}px`
+
+      const transform = dpr !== 1 ? [dpr, 0, 0, dpr, 0, 0] : undefined
 
       const renderContext = {
         canvasContext: ctx,
         viewport,
         canvas,
+        transform,
       }
 
       await page.render(renderContext).promise
 
       // Burn watermark directly into the canvas pixels
-      drawWatermark(ctx, viewport.width, viewport.height)
+      drawWatermark(ctx, canvas.width, canvas.height, dpr)
     } catch (err: unknown) {
       console.error('Page render error:', err)
     } finally {
@@ -172,6 +203,29 @@ export default function SecurePdfReader({
     }
   }
 
+  // Touch gestures for iPhone / Mobile swipe left & right
+  const handleTouchStart = (e: React.TouchEvent) => {
+    touchStartX.current = e.touches[0].clientX
+    touchStartY.current = e.touches[0].clientY
+  }
+
+  const handleTouchEnd = (e: React.TouchEvent) => {
+    if (touchStartX.current === null || touchStartY.current === null) return
+    const diffX = touchStartX.current - e.changedTouches[0].clientX
+    const diffY = touchStartY.current - e.changedTouches[0].clientY
+
+    // Detect horizontal swipe (ignore vertical scrolling)
+    if (Math.abs(diffX) > Math.abs(diffY) && Math.abs(diffX) > 45) {
+      if (diffX > 0) {
+        goToNextPage() // Swiped left -> next page
+      } else {
+        goToPrevPage() // Swiped right -> previous page
+      }
+    }
+    touchStartX.current = null
+    touchStartY.current = null
+  }
+
   const handlePageSubmit = (e: React.FormEvent) => {
     e.preventDefault()
     const p = parseInt(pageInput, 10)
@@ -180,6 +234,10 @@ export default function SecurePdfReader({
     } else {
       setPageInput(String(currentPage))
     }
+  }
+
+  const resetFit = () => {
+    setScale(baseFitScale)
   }
 
   const toggleFullscreen = () => {
@@ -201,49 +259,58 @@ export default function SecurePdfReader({
     <div
       ref={containerRef}
       onContextMenu={e => e.preventDefault()}
+      onTouchStart={handleTouchStart}
+      onTouchEnd={handleTouchEnd}
       className={`fixed inset-0 z-[100] bg-slate-950 flex flex-col select-none text-white overflow-hidden ${
         isFullscreen ? 'p-0' : ''
       }`}
-      style={{ userSelect: 'none', WebkitUserSelect: 'none' }}
+      style={{
+        userSelect: 'none',
+        WebkitUserSelect: 'none',
+        paddingTop: 'env(safe-area-inset-top, 0px)',
+        paddingBottom: 'env(safe-area-inset-bottom, 0px)',
+      }}
     >
-      {/* Top Navigation Bar */}
-      <header className="h-14 bg-slate-900 border-b border-slate-800 px-4 flex items-center justify-between shrink-0 z-20">
-        <div className="flex items-center gap-3 min-w-0">
-          <div className="flex items-center gap-1.5 text-brand-400 font-semibold text-sm truncate max-w-xs sm:max-w-md">
-            <Shield className="h-4 w-4 shrink-0 text-emerald-400" />
-            <span className="truncate">{bookTitle}</span>
-          </div>
-          <span className="hidden md:inline-flex items-center gap-1 text-[11px] px-2 py-0.5 rounded-full bg-slate-800 text-slate-400 border border-slate-700">
-            Protected Reader
+      {/* Top Navigation Bar with iPhone notch safe-area */}
+      <header className="h-14 bg-slate-900/95 backdrop-blur border-b border-slate-800 px-3 sm:px-4 flex items-center justify-between shrink-0 z-20">
+        <div className="flex items-center gap-2 min-w-0 pr-2">
+          <Shield className="h-4 w-4 shrink-0 text-emerald-400" />
+          <span className="font-semibold text-xs sm:text-sm text-slate-200 truncate max-w-[140px] xs:max-w-[200px] sm:max-w-md">
+            {bookTitle}
           </span>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1.5 sm:gap-2">
           {/* Zoom controls */}
-          <div className="hidden sm:flex items-center gap-1 bg-slate-800 rounded-lg p-0.5 border border-slate-700">
+          <div className="flex items-center gap-0.5 bg-slate-800 rounded-lg p-0.5 border border-slate-700">
             <button
-              onClick={() => setScale(s => Math.max(0.7, s - 0.2))}
-              className="p-1.5 hover:bg-slate-700 rounded text-slate-300 hover:text-white transition"
+              onClick={() => setScale(s => Math.max(0.4, Number((s - 0.15).toFixed(2))))}
+              className="p-1 sm:p-1.5 hover:bg-slate-700 rounded text-slate-300 hover:text-white transition"
               title="Zoom Out"
             >
-              <ZoomOut className="h-4 w-4" />
+              <ZoomOut className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
             </button>
-            <span className="text-xs px-1 text-slate-300 font-mono">
-              {Math.round((scale / 1.2) * 100)}%
-            </span>
             <button
-              onClick={() => setScale(s => Math.min(2.5, s + 0.2))}
-              className="p-1.5 hover:bg-slate-700 rounded text-slate-300 hover:text-white transition"
+              onClick={resetFit}
+              className="px-1.5 py-0.5 text-[11px] font-mono text-slate-300 hover:text-white hover:bg-slate-700 rounded transition flex items-center gap-0.5"
+              title="Fit to screen width"
+            >
+              <RotateCcw className="h-3 w-3 hidden xs:inline" />
+              <span>{Math.round((scale / baseFitScale) * 100)}%</span>
+            </button>
+            <button
+              onClick={() => setScale(s => Math.min(2.5, Number((s + 0.15).toFixed(2))))}
+              className="p-1 sm:p-1.5 hover:bg-slate-700 rounded text-slate-300 hover:text-white transition"
               title="Zoom In"
             >
-              <ZoomIn className="h-4 w-4" />
+              <ZoomIn className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
             </button>
           </div>
 
-          {/* Fullscreen toggle */}
+          {/* Fullscreen toggle (hidden on iPhones as iOS handles PWA viewport natively) */}
           <button
             onClick={toggleFullscreen}
-            className="p-2 hover:bg-slate-800 rounded-lg text-slate-300 hover:text-white transition"
+            className="hidden sm:inline-flex p-1.5 hover:bg-slate-800 rounded-lg text-slate-300 hover:text-white transition"
             title={isFullscreen ? 'Exit Fullscreen' : 'Fullscreen'}
           >
             {isFullscreen ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}
@@ -252,7 +319,7 @@ export default function SecurePdfReader({
           {/* Close button */}
           <button
             onClick={onClose}
-            className="p-2 hover:bg-red-500/20 hover:text-red-400 rounded-lg text-slate-400 transition"
+            className="p-1.5 sm:p-2 hover:bg-red-500/20 hover:text-red-400 rounded-lg text-slate-400 transition ml-1"
             title="Close Reader"
           >
             <X className="h-5 w-5" />
@@ -260,17 +327,17 @@ export default function SecurePdfReader({
         </div>
       </header>
 
-      {/* Reader Area */}
-      <main className="flex-1 overflow-auto flex items-center justify-center p-4 relative bg-slate-900/60">
+      {/* Reader Main Area (Smooth scrolling on iOS & Android) */}
+      <main className="flex-1 overflow-auto flex items-start sm:items-center justify-center p-2 sm:p-4 relative bg-slate-900/60 touch-pan-y">
         {loading && (
-          <div className="flex flex-col items-center gap-3">
+          <div className="flex flex-col items-center gap-3 my-auto py-12">
             <div className="animate-spin h-8 w-8 rounded-full border-3 border-brand-500 border-t-transparent" />
             <p className="text-sm text-slate-400">Loading book securely...</p>
           </div>
         )}
 
         {error && (
-          <div className="max-w-md bg-red-950/50 border border-red-800 text-red-200 rounded-2xl p-5 text-center space-y-3">
+          <div className="max-w-md bg-red-950/50 border border-red-800 text-red-200 rounded-2xl p-5 text-center space-y-3 my-auto">
             <AlertTriangle className="h-8 w-8 text-red-400 mx-auto" />
             <p className="text-sm">{error}</p>
             <button
@@ -284,21 +351,21 @@ export default function SecurePdfReader({
 
         {/* Security Watermark Floating Overlay */}
         {!loading && !error && (
-          <div className="pointer-events-none absolute inset-0 z-10 flex flex-col justify-between p-6 opacity-30 select-none overflow-hidden">
-            <div className="text-[10px] text-slate-400 font-mono tracking-wider">
+          <div className="pointer-events-none absolute inset-0 z-10 flex flex-col justify-between p-4 sm:p-6 opacity-30 select-none overflow-hidden">
+            <div className="text-[9px] sm:text-[10px] text-slate-400 font-mono tracking-wider truncate">
               {userName} • {userEmail}
             </div>
-            <div className="text-[10px] text-slate-400 font-mono tracking-wider self-end">
+            <div className="text-[9px] sm:text-[10px] text-slate-400 font-mono tracking-wider self-end">
               Community Library • Non-Transferable Digital Edition
             </div>
           </div>
         )}
 
         {/* Page Canvas */}
-        <div className={`relative shadow-2xl transition-opacity duration-150 ${loading || error ? 'hidden' : 'block'}`}>
+        <div className={`relative shadow-2xl transition-opacity duration-150 mx-auto ${loading || error ? 'hidden' : 'block'}`}>
           <canvas
             ref={canvasRef}
-            className="rounded-lg shadow-black/60 shadow-2xl max-w-full bg-white select-none"
+            className="rounded-lg shadow-black/70 shadow-2xl max-w-full bg-white select-none block"
             style={{ pointerEvents: 'none' }}
           />
           {pageRendering && (
@@ -309,37 +376,40 @@ export default function SecurePdfReader({
         </div>
       </main>
 
-      {/* Bottom Paging Controls */}
-      <footer className="h-14 bg-slate-900 border-t border-slate-800 px-4 flex items-center justify-between shrink-0 z-20">
+      {/* Bottom Paging Controls with iPhone Home Bar padding */}
+      <footer className="h-14 bg-slate-900/95 backdrop-blur border-t border-slate-800 px-3 sm:px-4 flex items-center justify-between shrink-0 z-20">
         <button
           onClick={goToPrevPage}
           disabled={currentPage <= 1 || pageRendering}
-          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 disabled:opacity-40 text-xs font-medium transition"
+          className="flex items-center gap-1 sm:gap-1.5 px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 active:bg-slate-600 text-slate-200 disabled:opacity-30 text-xs font-medium transition"
         >
-          <ChevronLeft className="h-4 w-4" /> Previous
+          <ChevronLeft className="h-4 w-4" /> <span className="hidden xs:inline">Prev</span>
         </button>
 
-        {/* Page input / indicator */}
-        <form onSubmit={handlePageSubmit} className="flex items-center gap-1.5 text-xs text-slate-300">
-          <span>Page</span>
-          <input
-            type="number"
-            min={1}
-            max={totalPages || 1}
-            value={pageInput}
-            onChange={e => setPageInput(e.target.value)}
-            onBlur={() => setPageInput(String(currentPage))}
-            className="w-12 bg-slate-800 border border-slate-700 rounded px-1.5 py-1 text-center font-mono text-white focus:outline-none focus:ring-1 focus:ring-brand-500"
-          />
-          <span>of {totalPages || 1}</span>
-        </form>
+        {/* Page input / indicator & swipe hint on mobile */}
+        <div className="flex flex-col items-center">
+          <form onSubmit={handlePageSubmit} className="flex items-center gap-1.5 text-xs text-slate-300">
+            <span>Page</span>
+            <input
+              type="number"
+              min={1}
+              max={totalPages || 1}
+              value={pageInput}
+              onChange={e => setPageInput(e.target.value)}
+              onBlur={() => setPageInput(String(currentPage))}
+              className="w-10 sm:w-12 bg-slate-800 border border-slate-700 rounded px-1 py-0.5 text-center font-mono text-white text-xs focus:outline-none focus:ring-1 focus:ring-brand-500"
+            />
+            <span>of {totalPages || 1}</span>
+          </form>
+          <span className="text-[10px] text-slate-500 hidden sm:block">Swipe left/right to turn page</span>
+        </div>
 
         <button
           onClick={goToNextPage}
           disabled={currentPage >= totalPages || pageRendering}
-          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 disabled:opacity-40 text-xs font-medium transition"
+          className="flex items-center gap-1 sm:gap-1.5 px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 active:bg-slate-600 text-slate-200 disabled:opacity-30 text-xs font-medium transition"
         >
-          Next <ChevronRight className="h-4 w-4" />
+          <span className="hidden xs:inline">Next</span> <ChevronRight className="h-4 w-4" />
         </button>
       </footer>
     </div>
