@@ -1,6 +1,7 @@
 import { Library, LogOut } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import BottomNav from './BottomNav'
+import InstallButton from './InstallButton'
 
 interface LayoutProps {
   children: React.ReactNode
@@ -17,13 +18,16 @@ export default function Layout({ children }: LayoutProps) {
           </div>
           <span className="font-bold tracking-tight text-slate-900">Community Library</span>
         </div>
-        <button
-          onClick={() => supabase.auth.signOut()}
-          className="p-2 rounded-xl text-slate-500 hover:bg-red-50 hover:text-red-700 transition-colors"
-          aria-label="Sign out"
-        >
-          <LogOut size={20} />
-        </button>
+        <div className="flex items-center gap-2">
+          <InstallButton />
+          <button
+            onClick={() => supabase.auth.signOut()}
+            className="p-2 rounded-xl text-slate-500 hover:bg-red-50 hover:text-red-700 transition-colors"
+            aria-label="Sign out"
+          >
+            <LogOut size={20} />
+          </button>
+        </div>
       </header>
 
       {/* Content */}

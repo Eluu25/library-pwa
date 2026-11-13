@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { NavLink, Outlet } from 'react-router-dom'
 import { BarChart3, Users, BookOpen, CreditCard, Library, LogOut, Menu, X, ShieldCheck } from 'lucide-react'
 import { supabase } from '../../lib/supabase'
+import InstallButton from '../../components/InstallButton'
 
 const navItems = [
   { to: '/admin', label: 'Dashboard', icon: BarChart3, end: true },
@@ -58,13 +59,16 @@ export default function AdminLayout() {
             </div>
           </div>
         </div>
-        <button
-          onClick={() => supabase.auth.signOut()}
-          className="flex items-center gap-2 text-sm font-medium text-slate-600 hover:text-red-700 px-3 py-2 rounded-xl hover:bg-red-50 transition-colors"
-        >
-          <LogOut className="h-4 w-4" />
-          <span className="hidden sm:inline">Sign out</span>
-        </button>
+        <div className="flex items-center gap-2">
+          <InstallButton />
+          <button
+            onClick={() => supabase.auth.signOut()}
+            className="flex items-center gap-2 text-sm font-medium text-slate-600 hover:text-red-700 px-3 py-2 rounded-xl hover:bg-red-50 transition-colors"
+          >
+            <LogOut className="h-4 w-4" />
+            <span className="hidden sm:inline">Sign out</span>
+          </button>
+        </div>
       </header>
 
       <div className="flex flex-1 overflow-hidden">
