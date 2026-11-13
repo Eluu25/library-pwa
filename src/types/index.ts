@@ -1,7 +1,7 @@
 export type UserRole = 'member' | 'admin'
 export type MemberStatus = 'pending' | 'approved' | 'rejected'
 export type LoanStatus = 'requested' | 'active' | 'returned' | 'lost' | 'rejected'
-export type PaymentType = 'membership' | 'loan' | 'penalty'
+export type PaymentType = 'membership' | 'loan' | 'penalty' | 'digital'
 export type PaymentStatus = 'pending' | 'confirmed' | 'rejected'
 export type WaitlistStatus = 'waiting' | 'notified' | 'fulfilled' | 'cancelled' | 'expired'
 
@@ -16,6 +16,7 @@ export interface Book {
   id: string; title: string; author: string; pub_year: number | null
   edition: string | null; price_per_day: number; replacement_price: number
   total_copies: number; cover_url: string | null; created_at: string
+  pdf_path: string | null; digital_price: number
 }
 export interface BookCatalog extends Book {
   available_copies: number; waiting_count: number
@@ -30,10 +31,13 @@ export interface LoanDetailed extends Loan {
   title: string; author: string; penalty_due: number; is_overdue: boolean
 }
 export interface Payment {
-  id: string; user_id: string; loan_id: string | null; type: PaymentType
+  id: string; user_id: string; loan_id: string | null; book_id?: string | null; type: PaymentType
   amount: number; method: string; txn_id: string | null; proof_path: string | null
   status: PaymentStatus; reject_reason: string | null; created_at: string
   reviewed_by: string | null; reviewed_at: string | null
+}
+export interface DigitalAccess {
+  id: string; user_id: string; book_id: string; payment_id: string | null; granted_at: string
 }
 export interface Waitlist {
   id: string; book_id: string; user_id: string; status: WaitlistStatus

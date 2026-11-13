@@ -4,14 +4,7 @@ import { supabase } from '../../lib/supabase'
 import { useAuth } from '../auth/AuthContext'
 import BookCard from './BookCard'
 import BookDetailModal from './BookDetailModal'
-
-// Types mirrored from src/types/index.ts
-interface BookCatalog {
-  id: string; title: string; author: string; pub_year: number | null
-  edition: string | null; price_per_day: number; replacement_price: number
-  total_copies: number; cover_url: string | null; created_at: string
-  available_copies: number; waiting_count: number
-}
+import { BookCatalog } from '../../types'
 
 export default function CatalogPage() {
   const { profile } = useAuth()

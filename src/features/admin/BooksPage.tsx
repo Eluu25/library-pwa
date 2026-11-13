@@ -1,25 +1,11 @@
 import { useEffect, useState, useCallback, FormEvent, useRef } from 'react'
-import { Plus, Pencil, Trash2, Library, X, Image, BookOpen, AlertTriangle } from 'lucide-react'
+import {
+  Plus, Pencil, Trash2, Library, X, Image, BookOpen, AlertTriangle,
+  FileText, Sparkles
+} from 'lucide-react'
 import { supabase } from '../../lib/supabase'
 import { useToast } from '../../components/ToastProvider'
-
-interface Book {
-  id: string
-  title: string
-  author: string
-  pub_year: number | null
-  edition: string | null
-  price_per_day: number
-  replacement_price: number
-  total_copies: number
-  cover_url: string | null
-  created_at: string
-}
-
-interface BookCatalog extends Book {
-  available_copies: number
-  waiting_count: number
-}
+import { BookCatalog } from '../../types'
 
 interface BookFormData {
   title: string
@@ -29,6 +15,7 @@ interface BookFormData {
   total_copies: number
   price_per_day: number
   replacement_price: number
+  digital_price: number
 }
 
 const initialForm: BookFormData = {
@@ -39,6 +26,7 @@ const initialForm: BookFormData = {
   total_copies: 1,
   price_per_day: 10,
   replacement_price: 300,
+  digital_price: 50,
 }
 
 export default function BooksPage() {
@@ -53,8 +41,14 @@ export default function BooksPage() {
   const [coverFile, setCoverFile]   = useState<File | null>(null)
   const [coverPreview, setCoverPreview] = useState<string | null>(null)
   const [existingCoverUrl, setExistingCoverUrl] = useState<string | null>(null)
+
+  // Digital PDF states
+  const [pdfFile, setPdfFile] = useState<File | null>(null)
+  const [existingPdfPath, setExistingPdfPath] = useState<string | null>(null)
+
   const [searchQuery, setSearchQuery] = useState('')
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const pdfInputRef = useRef<HTMLInputElement>(null)
 
   const fetchBooks = useCallback(async () => {
     setLoading(true)
@@ -77,6 +71,8 @@ export default function BooksPage() {
     setCoverFile(null)
     setCoverPreview(null)
     setExistingCoverUrl(null)
+    setPdfFile(null)
+    setExistingPdfPath(null)
     setIsModalOpen(true)
   }
 
@@ -91,10 +87,13 @@ export default function BooksPage() {
       total_copies: b.total_copies,
       price_per_day: b.price_per_day,
       replacement_price: b.replacement_price,
+      digital_price: b.digital_price ?? 50,
     })
     setCoverFile(null)
     setCoverPreview(null)
     setExistingCoverUrl(b.cover_url ?? null)
+    setPdfFile(null)
+    setExistingPdfPath(b.pdf_path ?? null)
     setIsModalOpen(true)
   }
 
@@ -118,6 +117,26 @@ export default function BooksPage() {
     }
   }
 
+  const handlePdfChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0] ?? null
+    if (file) {
+      if (file.type !== 'application/pdf' && !file.name.toLowerCase().endsWith('.pdf')) {
+        setError('Digital book must be a valid PDF file.')
+        e.target.value = ''
+        setPdfFile(null)
+        return
+      }
+      if (file.size > 50 * 1024 * 1024) {
+        setError('PDF file size must be less than 50 MB.')
+        e.target.value = ''
+        setPdfFile(null)
+        return
+      }
+    }
+    setError(null)
+    setPdfFile(file)
+  }
+
   const handleDelete = async (id: string, title: string) => {
     if (!window.confirm(`Delete "${title}"? This cannot be undone.`)) return
     const { error: err } = await supabase.from('books').delete().eq('id', id)
@@ -138,8 +157,9 @@ export default function BooksPage() {
       return
     }
     if (!Number.isFinite(form.price_per_day) || form.price_per_day < 0 ||
-        !Number.isFinite(form.replacement_price) || form.replacement_price < 0) {
-      setError('Fees and replacement price must be valid non-negative amounts.')
+        !Number.isFinite(form.replacement_price) || form.replacement_price < 0 ||
+        !Number.isFinite(form.digital_price) || form.digital_price < 0) {
+      setError('Fees, replacement, and digital prices must be valid non-negative amounts.')
       return
     }
     if (year !== null && (!Number.isInteger(year) || year < 1000 || year > 2100)) {
@@ -151,7 +171,9 @@ export default function BooksPage() {
 
     try {
       let coverUrlFinal: string | null = existingCoverUrl ?? null
+      let pdfPathFinal: string | null = existingPdfPath ?? null
 
+      // 1. Upload Cover image if changed
       if (coverFile) {
         const ext = coverFile.type === 'image/jpeg' ? 'jpg' : coverFile.type.split('/')[1]
         const path = `covers/${Date.now()}_${crypto.randomUUID()}.${ext}`
@@ -163,6 +185,16 @@ export default function BooksPage() {
         coverUrlFinal = urlData.publicUrl
       }
 
+      // 2. Upload PDF file if provided
+      if (pdfFile) {
+        const path = `books/${Date.now()}_${crypto.randomUUID()}.pdf`
+        const { error: pdfErr } = await supabase.storage
+          .from('book-pdfs')
+          .upload(path, pdfFile, { upsert: true })
+        if (pdfErr) throw new Error('PDF upload failed: ' + pdfErr.message)
+        pdfPathFinal = path
+      }
+
       const payload = {
         title:             form.title.trim(),
         author:            form.author.trim(),
@@ -172,6 +204,8 @@ export default function BooksPage() {
         price_per_day:     Number(form.price_per_day),
         replacement_price: Number(form.replacement_price),
         cover_url:         coverUrlFinal,
+        pdf_path:          pdfPathFinal,
+        digital_price:     Number(form.digital_price),
       }
 
       if (editingId) {
@@ -189,7 +223,7 @@ export default function BooksPage() {
       const message = err instanceof Error ? err.message : String(err)
       setError(
         message.toLowerCase().includes('bucket not found')
-          ? 'Supabase setup required: the "book-covers" storage bucket is missing. In Supabase, open SQL Editor, run supabase/migrations/20261112000000_book_covers.sql, then retry. Your book details and selected image are still here.'
+          ? 'Storage bucket missing. Please run the digital books migration SQL in Supabase SQL Editor.'
           : 'Error saving book: ' + message
       )
     } finally {
@@ -211,7 +245,7 @@ export default function BooksPage() {
           <h1 className="text-2xl font-bold tracking-tight text-slate-900 flex items-center gap-2">
             <Library className="h-5 w-5 text-brand-600" /> Books
           </h1>
-          <p className="mt-1 text-sm text-slate-500">Manage titles, cover art, copies, and borrowing fees.</p>
+          <p className="mt-1 text-sm text-slate-500">Manage physical copies, cover art, and digital eBooks.</p>
         </div>
         <button
           onClick={openAdd}
@@ -268,6 +302,13 @@ export default function BooksPage() {
                 }`}>
                   {b.available_copies}/{b.total_copies}
                 </span>
+
+                {/* Digital edition indicator */}
+                {b.pdf_path && (
+                  <span className="absolute top-2 left-2 text-[11px] font-bold px-2 py-0.5 rounded-full shadow-sm bg-emerald-600 text-white flex items-center gap-1">
+                    <Sparkles className="h-3 w-3" /> eBook
+                  </span>
+                )}
               </div>
 
               {/* Content */}
@@ -290,10 +331,10 @@ export default function BooksPage() {
                     <span className="text-slate-400 block">Replace</span>
                     <span className="font-semibold text-slate-700">{b.replacement_price} ETB</span>
                   </div>
-                  {b.waiting_count > 0 && (
+                  {b.pdf_path && (
                     <div>
-                      <span className="text-slate-400 block">Waiting</span>
-                      <span className="font-semibold text-amber-600">{b.waiting_count}</span>
+                      <span className="text-slate-400 block">eBook Access</span>
+                      <span className="font-semibold text-emerald-600">{b.digital_price} ETB</span>
                     </div>
                   )}
                 </div>
@@ -342,6 +383,7 @@ export default function BooksPage() {
                   <span>{error}</span>
                 </div>
               )}
+
               {/* Cover image upload */}
               <div>
                 <label className="block text-xs font-semibold text-slate-700 mb-2 uppercase tracking-wide">
@@ -440,6 +482,7 @@ export default function BooksPage() {
                 </div>
               </div>
 
+              {/* Physical Borrowing Details */}
               <div className="grid grid-cols-3 gap-3">
                 <div>
                   <label className="block text-xs font-semibold text-slate-700 mb-1 uppercase tracking-wide">Copies *</label>
@@ -474,6 +517,62 @@ export default function BooksPage() {
                     value={form.replacement_price}
                     onChange={e => setForm({ ...form, replacement_price: parseFloat(e.target.value) || 0 })}
                     className="w-full px-3 py-2.5 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-500"
+                  />
+                </div>
+              </div>
+
+              {/* Digital eBook Edition Section */}
+              <div className="rounded-xl border border-emerald-200 bg-emerald-50/50 p-3.5 space-y-3">
+                <div className="flex items-center gap-1.5 text-emerald-800 font-bold text-xs uppercase tracking-wide">
+                  <Sparkles className="h-4 w-4 text-emerald-600" />
+                  <span>Digital eBook Edition (Optional)</span>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-medium text-slate-700 mb-1">
+                    Book PDF File (Max 50 MB)
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() => pdfInputRef.current?.click()}
+                    className="w-full border-2 border-dashed border-emerald-300 bg-white rounded-lg p-2.5 text-xs text-slate-600 hover:border-emerald-500 transition text-left flex items-center justify-between"
+                  >
+                    <span className="flex items-center gap-2 truncate">
+                      <FileText className="h-4 w-4 text-emerald-600 shrink-0" />
+                      {pdfFile ? (
+                        <span className="font-semibold text-emerald-700 truncate">{pdfFile.name}</span>
+                      ) : existingPdfPath ? (
+                        <span className="text-slate-700 font-medium truncate">PDF already attached (click to replace)</span>
+                      ) : (
+                        <span>Upload PDF for in-app reading...</span>
+                      )}
+                    </span>
+                    <span className="text-emerald-700 font-bold shrink-0 ml-2">Browse</span>
+                  </button>
+                  <input
+                    ref={pdfInputRef}
+                    type="file"
+                    accept="application/pdf"
+                    className="hidden"
+                    onChange={handlePdfChange}
+                  />
+                  <p className="text-[11px] text-slate-400 mt-1">
+                    PDF will be protected with screenshot watermarking and download prevention.
+                  </p>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1 uppercase tracking-wide">
+                    Lifetime In-App Access Price (ETB)
+                  </label>
+                  <input
+                    type="number"
+                    min={0}
+                    step="0.01"
+                    value={form.digital_price}
+                    onChange={e => setForm({ ...form, digital_price: parseFloat(e.target.value) || 0 })}
+                    className="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                    placeholder="e.g. 50"
                   />
                 </div>
               </div>

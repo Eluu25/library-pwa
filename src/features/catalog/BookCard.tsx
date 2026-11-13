@@ -1,12 +1,5 @@
-import { BookOpen, Users } from 'lucide-react'
-
-// Types mirrored from src/types/index.ts
-interface BookCatalog {
-  id: string; title: string; author: string; pub_year: number | null
-  edition: string | null; price_per_day: number; replacement_price: number
-  total_copies: number; cover_url: string | null; created_at: string
-  available_copies: number; waiting_count: number
-}
+import { BookOpen, Users, Sparkles } from 'lucide-react'
+import { BookCatalog } from '../../types'
 
 interface BookCardProps {
   book: BookCatalog
@@ -15,6 +8,7 @@ interface BookCardProps {
 
 export default function BookCard({ book, onViewDetail }: BookCardProps) {
   const available = book.available_copies > 0
+  const hasDigital = !!book.pdf_path
 
   return (
     <button
@@ -45,25 +39,34 @@ export default function BookCard({ book, onViewDetail }: BookCardProps) {
 
       {/* Title & Author */}
       <div className="p-4 flex flex-col flex-1">
-        <h3 className="font-semibold text-slate-800 leading-snug line-clamp-2">{book.title}</h3>
-        <p className="text-sm text-slate-500 mt-0.5">{book.author}</p>
+        <div className="flex items-start justify-between gap-1 mb-0.5">
+          <h3 className="font-semibold text-slate-800 leading-snug line-clamp-2">{book.title}</h3>
+        </div>
+        <p className="text-sm text-slate-500">{book.author}</p>
       </div>
 
       {/* Year / Edition */}
       {(book.pub_year || book.edition) && (
-        <p className="text-xs text-slate-400">
+        <p className="px-4 text-xs text-slate-400">
           {[book.pub_year, book.edition ? `${book.edition} ed.` : null]
             .filter(Boolean)
             .join(' · ')}
         </p>
       )}
 
-      {/* Price */}
-      <div className="mt-auto pt-3 border-t border-slate-100">
-        <span className="text-sm font-semibold text-brand-700">
-          {book.price_per_day} ETB
-        </span>
-        <span className="text-xs text-slate-400"> / day</span>
+      {/* Pricing / Badges */}
+      <div className="mt-auto px-4 py-3 border-t border-slate-100 flex items-center justify-between">
+        <div>
+          <span className="text-sm font-semibold text-brand-700">
+            {book.price_per_day} ETB
+          </span>
+          <span className="text-xs text-slate-400"> / day</span>
+        </div>
+        {hasDigital && (
+          <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full">
+            <Sparkles className="h-3 w-3 text-emerald-500" /> eBook
+          </span>
+        )}
       </div>
     </button>
   )

@@ -1,15 +1,14 @@
 import { useEffect, useState, useCallback } from 'react'
-import { Eye, CheckCircle2, XCircle, CreditCard } from 'lucide-react'
+import { Eye, CheckCircle2, XCircle, CreditCard, Sparkles } from 'lucide-react'
 import { supabase } from '../../lib/supabase'
 import { useToast } from '../../components/ToastProvider'
-
-type PaymentType = 'membership' | 'loan' | 'penalty'
-type PaymentStatus = 'pending' | 'confirmed' | 'rejected'
+import { PaymentType, PaymentStatus } from '../../types'
 
 interface Payment {
   id: string
   user_id: string
   loan_id: string | null
+  book_id?: string | null
   type: PaymentType
   amount: number
   method: string
@@ -26,6 +25,12 @@ interface ProfileSimple {
   id: string
   full_name: string
   email: string
+}
+
+interface BookSimple {
+  id: string
+  title: string
+  author: string
 }
 
 type FilterTab = 'pending' | 'all'
@@ -45,6 +50,13 @@ function StatusBadge({ status }: { status: PaymentStatus }) {
 }
 
 function TypeBadge({ type }: { type: PaymentType }) {
+  if (type === 'digital') {
+    return (
+      <span className="inline-flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800">
+        <Sparkles className="h-3 w-3" /> eBook Access
+      </span>
+    )
+  }
   const cls =
     type === 'membership'
       ? 'bg-purple-100 text-purple-700'
@@ -62,6 +74,7 @@ export default function PaymentsPage() {
   const { notify } = useToast()
   const [payments, setPayments] = useState<Payment[]>([])
   const [profiles, setProfiles] = useState<Record<string, ProfileSimple>>({})
+  const [books, setBooks] = useState<Record<string, BookSimple>>({})
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [tab, setTab] = useState<FilterTab>('pending')
@@ -71,9 +84,10 @@ export default function PaymentsPage() {
     setLoading(true)
     setError(null)
     try {
-      const [paymentsRes, profilesRes] = await Promise.all([
+      const [paymentsRes, profilesRes, booksRes] = await Promise.all([
         supabase.from('payments').select('*').order('created_at', { ascending: false }),
         supabase.from('profiles').select('id, full_name, email'),
+        supabase.from('books').select('id, title, author'),
       ])
 
       if (paymentsRes.error) throw paymentsRes.error
@@ -86,6 +100,12 @@ export default function PaymentsPage() {
         pMap[p.id] = p
       })
       setProfiles(pMap)
+
+      const bMap: Record<string, BookSimple> = {}
+      ;(booksRes.data as BookSimple[])?.forEach(b => {
+        bMap[b.id] = b
+      })
+      setBooks(bMap)
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : 'Failed to fetch payments')
     } finally {
@@ -115,7 +135,7 @@ export default function PaymentsPage() {
     if (err) {
       notify('error', 'Could not confirm payment', err.message)
     } else {
-      notify('success', 'Payment confirmed', 'The payment has been approved.')
+      notify('success', 'Payment confirmed', 'The payment has been approved and access granted.')
       await fetchData()
     }
     setActionLoading(null)
@@ -150,7 +170,7 @@ export default function PaymentsPage() {
         <h1 className="text-2xl font-bold tracking-tight text-slate-900 flex items-center gap-2">
           <CreditCard className="h-5 w-5 text-brand-600" /> Payments
         </h1>
-        <p className="mt-1 text-sm text-slate-500">Review payments for book loans and penalties.</p>
+        <p className="mt-1 text-sm text-slate-500">Review payments for book loans, eBook digital access, and penalties.</p>
       </div>
 
       {/* Tabs */}
@@ -191,8 +211,9 @@ export default function PaymentsPage() {
         <div className="space-y-3">
           {filtered.map(p => {
             const member = profiles[p.user_id]
+            const book = p.book_id ? books[p.book_id] : null
             const isLegacyMembership = p.type === 'membership'
-            const isPendingLoanOrPenalty = p.status === 'pending' && !isLegacyMembership
+            const isPendingValid = p.status === 'pending' && !isLegacyMembership
 
             return (
               <div key={p.id} className="bg-white rounded-2xl border border-slate-200/80 shadow-sm p-4 sm:p-5 space-y-3">
@@ -214,6 +235,11 @@ export default function PaymentsPage() {
                         <span className="text-slate-400">User ID: {p.user_id}</span>
                       )}
                     </div>
+                    {book && (
+                      <div className="text-xs text-emerald-800 bg-emerald-50 px-2 py-0.5 rounded-md inline-block">
+                        eBook: <strong>{book.title}</strong> by {book.author}
+                      </div>
+                    )}
                   </div>
 
                   <div className="flex flex-col items-end gap-1">
@@ -239,6 +265,12 @@ export default function PaymentsPage() {
                       <span className="font-mono text-slate-600 truncate block">{p.loan_id}</span>
                     </div>
                   )}
+                  {p.book_id && (
+                    <div>
+                      <span className="text-slate-400 block">Digital Book ID:</span>
+                      <span className="font-mono text-slate-600 truncate block">{p.book_id}</span>
+                    </div>
+                  )}
                 </div>
 
                 {p.reject_reason && (
@@ -249,7 +281,7 @@ export default function PaymentsPage() {
 
                 {isLegacyMembership && (
                   <div className="rounded-lg border border-slate-200 bg-slate-50 p-2.5 text-xs text-slate-600">
-                    Legacy membership record. Members do not pay a membership fee; payments are only for borrowing books or settling penalties.
+                    Legacy membership record. Members do not pay a membership fee; payments are only for borrowing books, eBook digital access, or settling penalties.
                   </div>
                 )}
 
@@ -264,7 +296,7 @@ export default function PaymentsPage() {
                     </button>
                   )}
 
-                  {isPendingLoanOrPenalty && (
+                  {isPendingValid && (
                     <>
                       <button
                         onClick={() => handleConfirm(p.id)}
