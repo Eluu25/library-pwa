@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, useCallback } from 'react'
 import {
   X, ChevronLeft, ChevronRight, ZoomIn, ZoomOut, Maximize2,
-  Minimize2, Shield, AlertTriangle, RotateCcw
+  Minimize2, Shield, AlertTriangle, RotateCcw, Moon, Sun, BookOpen
 } from 'lucide-react'
 import * as pdfjsLib from 'pdfjs-dist'
 
@@ -9,6 +9,8 @@ import * as pdfjsLib from 'pdfjs-dist'
 if (typeof window !== 'undefined') {
   pdfjsLib.GlobalWorkerOptions.workerSrc = `https://unpkg.com/pdfjs-dist@${pdfjsLib.version}/build/pdf.worker.min.mjs`
 }
+
+type ReadingTheme = 'light' | 'sepia' | 'night'
 
 interface SecurePdfReaderProps {
   pdfUrl: string
@@ -40,6 +42,20 @@ export default function SecurePdfReader({
   const [error, setError] = useState<string | null>(null)
   const [isFullscreen, setIsFullscreen] = useState(false)
   const [pageInput, setPageInput] = useState('1')
+
+  // Reading theme: light, sepia (warm parchment), or night (dark mode)
+  const [theme, setTheme] = useState<ReadingTheme>(() => {
+    return (localStorage.getItem('pdf_reader_theme') as ReadingTheme) || 'light'
+  })
+
+  const cycleTheme = () => {
+    setTheme(current => {
+      const next: ReadingTheme =
+        current === 'light' ? 'sepia' : current === 'sepia' ? 'night' : 'light'
+      localStorage.setItem('pdf_reader_theme', next)
+      return next
+    })
+  }
 
   // Block print & save keyboard shortcuts
   useEffect(() => {
@@ -87,7 +103,6 @@ export default function SecurePdfReader({
           const firstPage = await doc.getPage(1)
           const baseViewport = firstPage.getViewport({ scale: 1.0 })
           const screenWidth = window.innerWidth
-          // Leave comfortable margins (16px on mobile, 48px on desktop)
           const margin = screenWidth < 640 ? 24 : 48
           const targetWidth = Math.min(screenWidth - margin, 900)
           const computedScale = Math.max(0.4, Math.min(targetWidth / baseViewport.width, 2.5))
@@ -122,7 +137,6 @@ export default function SecurePdfReader({
 
     const watermarkText = `CONFIDENTIAL • ${userName} (${userEmail}) • COMMUNITY LIBRARY`
 
-    // Rotate and tile watermark diagonally across page
     ctx.translate(width / 2, height / 2)
     ctx.rotate((-35 * Math.PI) / 180)
 
@@ -149,15 +163,12 @@ export default function SecurePdfReader({
       const ctx = canvas.getContext('2d')
       if (!ctx) return
 
-      // Support iPhone Retina displays (DPR 2 or 3) for crisp text rendering
       const dpr = typeof window !== 'undefined' ? (window.devicePixelRatio || 1) : 1
       const viewport = page.getViewport({ scale })
 
-      // Set physical canvas pixel dimensions scaled by DPR
       canvas.width = Math.floor(viewport.width * dpr)
       canvas.height = Math.floor(viewport.height * dpr)
 
-      // CSS display size (stays responsive to container)
       canvas.style.width = `${Math.floor(viewport.width)}px`
       canvas.style.height = `${Math.floor(viewport.height)}px`
 
@@ -172,7 +183,6 @@ export default function SecurePdfReader({
 
       await page.render(renderContext).promise
 
-      // Burn watermark directly into the canvas pixels
       drawWatermark(ctx, canvas.width, canvas.height, dpr)
     } catch (err: unknown) {
       console.error('Page render error:', err)
@@ -214,12 +224,11 @@ export default function SecurePdfReader({
     const diffX = touchStartX.current - e.changedTouches[0].clientX
     const diffY = touchStartY.current - e.changedTouches[0].clientY
 
-    // Detect horizontal swipe (ignore vertical scrolling)
     if (Math.abs(diffX) > Math.abs(diffY) && Math.abs(diffX) > 45) {
       if (diffX > 0) {
-        goToNextPage() // Swiped left -> next page
+        goToNextPage()
       } else {
-        goToPrevPage() // Swiped right -> previous page
+        goToPrevPage()
       }
     }
     touchStartX.current = null
@@ -255,6 +264,32 @@ export default function SecurePdfReader({
     }
   }
 
+  // Canvas visual filter for Night / Sepia modes
+  const getCanvasStyle = (): React.CSSProperties => {
+    if (theme === 'night') {
+      return {
+        filter: 'invert(0.92) hue-rotate(180deg) contrast(1.1) brightness(0.92)',
+        backgroundColor: '#121212',
+      }
+    }
+    if (theme === 'sepia') {
+      return {
+        filter: 'sepia(0.55) contrast(0.96) brightness(0.96)',
+        backgroundColor: '#fbf0d9',
+      }
+    }
+    return {
+      filter: 'none',
+      backgroundColor: '#ffffff',
+    }
+  }
+
+  const getMainBackground = () => {
+    if (theme === 'night') return 'bg-black'
+    if (theme === 'sepia') return 'bg-[#292218]/90'
+    return 'bg-slate-900/60'
+  }
+
   return (
     <div
       ref={containerRef}
@@ -275,12 +310,34 @@ export default function SecurePdfReader({
       <header className="h-14 bg-slate-900/95 backdrop-blur border-b border-slate-800 px-3 sm:px-4 flex items-center justify-between shrink-0 z-20">
         <div className="flex items-center gap-2 min-w-0 pr-2">
           <Shield className="h-4 w-4 shrink-0 text-emerald-400" />
-          <span className="font-semibold text-xs sm:text-sm text-slate-200 truncate max-w-[140px] xs:max-w-[200px] sm:max-w-md">
+          <span className="font-semibold text-xs sm:text-sm text-slate-200 truncate max-w-[120px] xs:max-w-[180px] sm:max-w-md">
             {bookTitle}
           </span>
         </div>
 
         <div className="flex items-center gap-1.5 sm:gap-2">
+          {/* Theme Selector (Night Mode / Sepia / Day) */}
+          <button
+            onClick={cycleTheme}
+            className={`flex items-center gap-1 px-2 py-1 rounded-lg border text-xs font-medium transition ${
+              theme === 'night'
+                ? 'bg-indigo-950/80 border-indigo-700 text-indigo-300'
+                : theme === 'sepia'
+                ? 'bg-amber-950/80 border-amber-700 text-amber-300'
+                : 'bg-slate-800 border-slate-700 text-slate-300 hover:text-white'
+            }`}
+            title={`Reading Mode: ${theme.toUpperCase()} (Click to toggle)`}
+          >
+            {theme === 'night' ? (
+              <Moon className="h-3.5 w-3.5 text-indigo-400" />
+            ) : theme === 'sepia' ? (
+              <BookOpen className="h-3.5 w-3.5 text-amber-400" />
+            ) : (
+              <Sun className="h-3.5 w-3.5 text-amber-300" />
+            )}
+            <span className="capitalize hidden xs:inline">{theme}</span>
+          </button>
+
           {/* Zoom controls */}
           <div className="flex items-center gap-0.5 bg-slate-800 rounded-lg p-0.5 border border-slate-700">
             <button
@@ -307,7 +364,7 @@ export default function SecurePdfReader({
             </button>
           </div>
 
-          {/* Fullscreen toggle (hidden on iPhones as iOS handles PWA viewport natively) */}
+          {/* Fullscreen toggle */}
           <button
             onClick={toggleFullscreen}
             className="hidden sm:inline-flex p-1.5 hover:bg-slate-800 rounded-lg text-slate-300 hover:text-white transition"
@@ -319,7 +376,7 @@ export default function SecurePdfReader({
           {/* Close button */}
           <button
             onClick={onClose}
-            className="p-1.5 sm:p-2 hover:bg-red-500/20 hover:text-red-400 rounded-lg text-slate-400 transition ml-1"
+            className="p-1.5 sm:p-2 hover:bg-red-500/20 hover:text-red-400 rounded-lg text-slate-400 transition ml-0.5"
             title="Close Reader"
           >
             <X className="h-5 w-5" />
@@ -327,8 +384,8 @@ export default function SecurePdfReader({
         </div>
       </header>
 
-      {/* Reader Main Area (Smooth scrolling on iOS & Android) */}
-      <main className="flex-1 overflow-auto flex items-start sm:items-center justify-center p-2 sm:p-4 relative bg-slate-900/60 touch-pan-y">
+      {/* Reader Main Area with Dynamic Theme Background */}
+      <main className={`flex-1 overflow-auto flex items-start sm:items-center justify-center p-2 sm:p-4 relative transition-colors duration-200 touch-pan-y ${getMainBackground()}`}>
         {loading && (
           <div className="flex flex-col items-center gap-3 my-auto py-12">
             <div className="animate-spin h-8 w-8 rounded-full border-3 border-brand-500 border-t-transparent" />
@@ -361,12 +418,15 @@ export default function SecurePdfReader({
           </div>
         )}
 
-        {/* Page Canvas */}
+        {/* Page Canvas with Theme Shader */}
         <div className={`relative shadow-2xl transition-opacity duration-150 mx-auto ${loading || error ? 'hidden' : 'block'}`}>
           <canvas
             ref={canvasRef}
-            className="rounded-lg shadow-black/70 shadow-2xl max-w-full bg-white select-none block"
-            style={{ pointerEvents: 'none' }}
+            className="rounded-lg shadow-black/80 shadow-2xl max-w-full select-none block transition-all duration-200"
+            style={{
+              pointerEvents: 'none',
+              ...getCanvasStyle(),
+            }}
           />
           {pageRendering && (
             <div className="absolute inset-0 bg-black/20 flex items-center justify-center rounded-lg backdrop-blur-[1px]">
