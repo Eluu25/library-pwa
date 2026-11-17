@@ -27,7 +27,8 @@ function SignInForm() {
     e.preventDefault()
     setError(null)
     setLoading(true)
-    const { error } = await supabase.auth.signInWithPassword({ email, password })
+    const cleanEmail = email.trim().toLowerCase()
+    const { error } = await supabase.auth.signInWithPassword({ email: cleanEmail, password })
     if (error) {
       setError(error.message === 'Email not confirmed'
         ? 'Email confirmation is enabled in Supabase. Disable it in Authentication settings; email is only collected for your account form.'
@@ -55,6 +56,9 @@ function SignInForm() {
         placeholder="you@example.com"
         icon={<Mail className="w-4 h-4" />}
         autoComplete="email"
+        autoCapitalize="none"
+        autoCorrect="off"
+        spellCheck={false}
       />
 
       <Input
