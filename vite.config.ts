@@ -3,7 +3,10 @@ import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
 import { VitePWA } from 'vite-plugin-pwa'
 
-const BASE = '/library-pwa/' // must match your GitHub repo name
+declare const process: { env: Record<string, string | undefined> }
+
+// Use '/' for Netlify and local dev, '/library-pwa/' when building on GitHub Actions
+const BASE = process.env.VITE_BASE_PATH ?? (process.env.NETLIFY ? '/' : (process.env.GITHUB_ACTIONS ? '/library-pwa/' : '/'))
 
 export default defineConfig({
   base: BASE,

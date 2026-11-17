@@ -347,7 +347,7 @@ export function Logo({
         className={`${iconSizes} rounded-xl bg-slate-900 text-white flex items-center justify-center shadow-md p-1 relative shrink-0 overflow-hidden border border-slate-700/50`}
       >
         <img
-          src="/library-pwa/logo.png"
+          src={`${import.meta.env.BASE_URL}logo.png`}
           alt="Liora Logo"
           className="w-full h-full object-contain"
         />

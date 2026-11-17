@@ -51,7 +51,7 @@ export default function AdminLayout() {
           </button>
           <div className="flex items-center gap-2.5">
             <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-slate-900 p-1 shadow-sm border border-slate-700/50">
-              <img src="/library-pwa/logo.png" alt="Liora" className="w-full h-full object-contain" />
+              <img src={`${import.meta.env.BASE_URL}logo.png`} alt="Liora" className="w-full h-full object-contain" />
             </div>
             <div>
               <p className="font-bold tracking-tight text-slate-900">Liora</p>

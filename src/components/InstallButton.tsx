@@ -83,7 +83,7 @@ export default function InstallButton() {
             <div className="flex items-center justify-between border-b pb-3">
               <div className="flex items-center gap-2">
                 <div className="p-2 bg-slate-900 rounded-xl text-white">
-                  <img src="/library-pwa/logo.png" alt="Liora" className="h-5 w-5 object-contain" />
+                  <img src={`${import.meta.env.BASE_URL}logo.png`} alt="Liora" className="h-5 w-5 object-contain" />
                 </div>
                 <div>
                   <h3 className="font-bold text-base text-slate-900">
@@ -162,7 +162,7 @@ export default function InstallButton() {
                     <div>
                       <p className="font-semibold text-slate-800 text-xs">Or via Browser Menu (Three Dots ⋮)</p>
                       <p className="text-xs text-slate-500 mt-0.5">
-                        Click the <strong>three dots (⋮)</strong> in the top-right corner of Chrome or Edge ➔ select <strong>"Save and share"</strong> (or <strong>"Apps"</strong>) ➔ click <strong>"Install Community Library"</strong>.
+                        Click the <strong>three dots (⋮)</strong> in the top-right corner of Chrome or Edge ➔ select <strong>"Save and share"</strong> (or <strong>"Apps"</strong>) ➔ click <strong>"Install Liora"</strong>.
                       </p>
                     </div>
                   </div>
