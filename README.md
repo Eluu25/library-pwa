@@ -1,6 +1,6 @@
-# 📚 Community Library PWA
+# 📚 Liora - Hybrid Library & eBook PWA
 
-A modern, mobile-first **Progressive Web Application (PWA)** for community library management and digital reading. Built with **React 19**, **TypeScript**, **Tailwind CSS**, and **Supabase (PostgreSQL with Row-Level Security & Storage)**.
+A modern, mobile-first **Progressive Web Application (PWA)** for physical book lending and digital eBook reading. Built with **React 19**, **TypeScript**, **Tailwind CSS**, and **Supabase (PostgreSQL with Row-Level Security & Storage)**.
 
 Combines traditional **physical book borrowing** with a secure, **in-app digital eBook reader** equipped with anti-screenshot watermarking and download prevention.
 

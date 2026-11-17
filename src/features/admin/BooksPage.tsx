@@ -285,7 +285,7 @@ export default function BooksPage() {
           {displayedBooks.map(b => (
             <div key={b.id} className="bg-white rounded-xl shadow-sm border border-slate-100 overflow-hidden flex flex-col">
               {/* Cover image */}
-              <div className="relative h-40 bg-gradient-to-br from-brand-50 to-brand-100 flex items-center justify-center overflow-hidden">
+              <div className="relative h-44 bg-gradient-to-br from-brand-50 to-brand-100 flex items-center justify-center overflow-hidden">
                 {b.cover_url ? (
                   <img
                     src={b.cover_url}

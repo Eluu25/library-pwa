@@ -50,11 +50,11 @@ export default function AdminLayout() {
             {drawerOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
           </button>
           <div className="flex items-center gap-2.5">
-            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-brand-600 text-white">
-              <Library className="h-5 w-5" />
+            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-slate-900 p-1 shadow-sm border border-slate-700/50">
+              <img src="/library-pwa/logo.png" alt="Liora" className="w-full h-full object-contain" />
             </div>
             <div>
-              <p className="font-bold tracking-tight text-slate-900">Community Library</p>
+              <p className="font-bold tracking-tight text-slate-900">Liora</p>
               <p className="text-[11px] font-medium uppercase tracking-wider text-slate-500">Administration</p>
             </div>
           </div>

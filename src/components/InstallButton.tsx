@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Download, Share, X, PlusSquare, Monitor, Smartphone, CheckCircle2 } from 'lucide-react'
+import { Download, Share, X, PlusSquare, CheckCircle2 } from 'lucide-react'
 
 interface BeforeInstallPromptEvent extends Event {
   prompt: () => Promise<void>
@@ -69,10 +69,10 @@ export default function InstallButton() {
       <button
         onClick={handleInstallClick}
         className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-brand-600 hover:bg-brand-700 text-white text-xs font-semibold transition shadow-sm active:scale-95 cursor-pointer"
-        title="Install Community Library as an app"
+        title="Install Liora as an app"
       >
         <Download className="h-3.5 w-3.5 text-white" />
-        <span>Install App</span>
+        <span>Install Liora</span>
       </button>
 
       {/* Visual Install Instructions Modal */}
@@ -82,12 +82,12 @@ export default function InstallButton() {
             {/* Header */}
             <div className="flex items-center justify-between border-b pb-3">
               <div className="flex items-center gap-2">
-                <div className="p-2 bg-brand-50 rounded-xl text-brand-700">
-                  {isIos ? <Smartphone className="h-5 w-5" /> : <Monitor className="h-5 w-5" />}
+                <div className="p-2 bg-slate-900 rounded-xl text-white">
+                  <img src="/library-pwa/logo.png" alt="Liora" className="h-5 w-5 object-contain" />
                 </div>
                 <div>
                   <h3 className="font-bold text-base text-slate-900">
-                    Install Community Library
+                    Install Liora
                   </h3>
                   <p className="text-xs text-slate-500">Run as a fast, standalone desktop or mobile app</p>
                 </div>

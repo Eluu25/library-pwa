@@ -135,7 +135,7 @@ export default function SecurePdfReader({
     ctx.font = `bold ${fontSize}px sans-serif`
     ctx.fillStyle = '#0f172a'
 
-    const watermarkText = `CONFIDENTIAL • ${userName} (${userEmail}) • COMMUNITY LIBRARY`
+    const watermarkText = `CONFIDENTIAL • ${userName} (${userEmail}) • LIORA LIBRARY`
 
     ctx.translate(width / 2, height / 2)
     ctx.rotate((-35 * Math.PI) / 180)
@@ -413,7 +413,7 @@ export default function SecurePdfReader({
               {userName} • {userEmail}
             </div>
             <div className="text-[9px] sm:text-[10px] text-slate-400 font-mono tracking-wider self-end">
-              Community Library • Non-Transferable Digital Edition
+              Liora Library • Non-Transferable Digital Edition
             </div>
           </div>
         )}

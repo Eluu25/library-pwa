@@ -1,5 +1,5 @@
 import { forwardRef, ButtonHTMLAttributes, InputHTMLAttributes, ReactNode } from 'react'
-import { BookOpen, AlertCircle, AlertTriangle, CheckCircle2, Clock, X } from 'lucide-react'
+import { AlertCircle, AlertTriangle, CheckCircle2, Clock, X } from 'lucide-react'
 
 // ============================================================================
 // 1. BUTTON
@@ -344,15 +344,17 @@ export function Logo({
   return (
     <div className={`inline-flex items-center gap-3 ${className}`}>
       <div
-        className={`${iconSizes} rounded-xl bg-gradient-to-tr from-brand-600 to-brand-500 text-white flex items-center justify-center shadow-md shadow-brand-500/20 relative shrink-0`}
+        className={`${iconSizes} rounded-xl bg-slate-900 text-white flex items-center justify-center shadow-md p-1 relative shrink-0 overflow-hidden border border-slate-700/50`}
       >
-        <BookOpen className="w-5 h-5 text-white" />
-        {/* Subtle gold crown/dot accent */}
-        <span className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-gold-400 rounded-full border-2 border-white ring-1 ring-gold-500" />
+        <img
+          src="/library-pwa/logo.png"
+          alt="Liora Logo"
+          className="w-full h-full object-contain"
+        />
       </div>
       <div>
-        <h1 className={`${titleSizes} ${light ? 'text-white' : 'text-brand-900'} leading-none`}>
-          Community Library
+        <h1 className={`${titleSizes} ${light ? 'text-white' : 'text-slate-900'} leading-none font-bold tracking-tight`}>
+          Liora
         </h1>
         {showSubtitle && (
           <p
@@ -360,7 +362,7 @@ export function Logo({
               light ? 'text-brand-200' : 'text-slate-500'
             } font-medium tracking-wide`}
           >
-            Lending Hub & Resource Center
+            Library & eBook Center
           </p>
         )}
       </div>

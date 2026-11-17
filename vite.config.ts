@@ -16,9 +16,9 @@ export default defineConfig({
         enabled: true,
       },
       manifest: {
-        name: 'Community Library',
-        short_name: 'Library',
-        description: 'Borrow books, track loans and penalties.',
+        name: 'Liora Library',
+        short_name: 'Liora',
+        description: 'Liora Library - Borrow books & read digital eBooks',
         theme_color: '#0F7B6C',
         background_color: '#F7F4EC',
         display: 'standalone',

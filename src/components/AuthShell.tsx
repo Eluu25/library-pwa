@@ -93,7 +93,7 @@ export default function AuthShell({
 
         {/* Footer info (Desktop only) */}
         <div className="relative z-10 pt-4 border-t border-white/10 hidden md:flex items-center justify-between text-xs text-brand-200/70">
-          <span>© 2026 Community Library</span>
+          <span>© 2026 Liora Library</span>
           <span className="inline-flex items-center gap-1.5">
             <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
             Live Catalog & PWA Offline Ready
