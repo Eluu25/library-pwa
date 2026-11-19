@@ -1,6 +1,6 @@
 import { useState } from 'react'
-import { NavLink, Outlet } from 'react-router-dom'
-import { BarChart3, Users, BookOpen, CreditCard, Library, LogOut, Menu, X, ShieldCheck } from 'lucide-react'
+import { NavLink, Outlet, useLocation, Link } from 'react-router-dom'
+import { BarChart3, Users, BookOpen, CreditCard, Library, LogOut, Menu, X, ShieldCheck, ArrowLeft } from 'lucide-react'
 import { supabase } from '../../lib/supabase'
 import InstallButton from '../../components/InstallButton'
 
@@ -37,19 +37,31 @@ function NavItems({ onClose }: { onClose?: () => void }) {
 
 export default function AdminLayout() {
   const [drawerOpen, setDrawerOpen] = useState(false)
+  const location = useLocation()
+  const isNotDashboard = location.pathname !== '/admin'
 
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col">
       <header className="sticky top-0 bg-white/95 backdrop-blur border-b border-slate-200 px-4 sm:px-6 py-3 flex items-center justify-between z-30">
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2 sm:gap-3">
+          {isNotDashboard && (
+            <Link
+              to="/admin"
+              className="p-2 rounded-xl text-slate-600 hover:bg-slate-100 flex items-center justify-center transition-colors"
+              title="Back to Dashboard"
+              aria-label="Back to Dashboard"
+            >
+              <ArrowLeft className="h-5 w-5 text-slate-700" />
+            </Link>
+          )}
           <button
-            className="lg:hidden p-2 rounded-xl text-slate-600 hover:bg-slate-100"
+            className="lg:hidden p-2 rounded-xl text-slate-600 hover:bg-slate-100 transition-colors"
             onClick={() => setDrawerOpen(o => !o)}
             aria-label="Toggle menu"
           >
             {drawerOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
           </button>
-          <div className="flex items-center gap-2.5">
+          <Link to="/admin" className="flex items-center gap-2.5 hover:opacity-90 transition-opacity">
             <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-slate-900 p-1 shadow-sm border border-slate-700/50">
               <img src={`${import.meta.env.BASE_URL}logo.png`} alt="Liora" className="w-full h-full object-contain" />
             </div>
@@ -57,7 +69,7 @@ export default function AdminLayout() {
               <p className="font-bold tracking-tight text-slate-900">Liora</p>
               <p className="text-[11px] font-medium uppercase tracking-wider text-slate-500">Administration</p>
             </div>
-          </div>
+          </Link>
         </div>
         <div className="flex items-center gap-2">
           <InstallButton />
@@ -106,7 +118,18 @@ export default function AdminLayout() {
 
         <main className="flex-1 min-w-0 overflow-y-auto p-4 sm:p-6 lg:p-8">
           <div className="mx-auto max-w-7xl">
-          <Outlet />
+            {isNotDashboard && (
+              <div className="mb-4">
+                <Link
+                  to="/admin"
+                  className="inline-flex items-center gap-2 text-xs sm:text-sm font-semibold text-slate-600 hover:text-brand-700 bg-white hover:bg-brand-50/80 border border-slate-200/80 px-3.5 py-2 rounded-xl shadow-xs transition-all active:scale-95"
+                >
+                  <ArrowLeft className="h-4 w-4 text-brand-600" />
+                  <span>Back to Dashboard</span>
+                </Link>
+              </div>
+            )}
+            <Outlet />
           </div>
         </main>
       </div>
