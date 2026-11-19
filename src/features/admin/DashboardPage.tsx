@@ -1,7 +1,8 @@
 import { useEffect, useState, useCallback } from 'react'
+import { Link } from 'react-router-dom'
 import {
   AlertTriangle, BookCopy, BookOpen, CreditCard, DollarSign,
-  Library, Users, Wallet, Clock3
+  Library, Users, Wallet, Clock3, ArrowUpRight
 } from 'lucide-react'
 import { supabase } from '../../lib/supabase'
 
@@ -19,25 +20,45 @@ interface AdminStats {
   checked_at: string
 }
 
-function StatCard({ icon: Icon, label, value, sub }: {
+function StatCard({ icon: Icon, label, value, to, sub }: {
   icon: typeof Library
   label: string
   value: string | number
+  to?: string
   sub?: string
 }) {
+  const CardWrapper = to ? Link : 'div'
   return (
-    <div className="rounded-2xl border border-slate-200/80 bg-white p-4 sm:p-5 shadow-sm">
+    <CardWrapper
+      to={to!}
+      className={`rounded-2xl border border-slate-200/80 bg-white p-4 sm:p-5 shadow-sm transition-all duration-200 block text-left group ${
+        to
+          ? 'cursor-pointer hover:shadow-md hover:border-brand-400/80 hover:-translate-y-0.5 active:scale-[0.99]'
+          : ''
+      }`}
+    >
       <div className="flex items-start justify-between gap-3">
         <div>
-          <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">{label}</div>
+          <div className="text-xs font-semibold uppercase tracking-wide text-slate-500 group-hover:text-brand-700 transition-colors flex items-center gap-1.5">
+            {label}
+            {to && (
+              <ArrowUpRight className="h-3.5 w-3.5 opacity-0 -translate-x-1 group-hover:opacity-100 group-hover:translate-x-0 transition-all text-brand-600" />
+            )}
+          </div>
           <div className="mt-2 text-2xl font-bold tracking-tight text-slate-900">{value}</div>
         </div>
-        <div className="rounded-xl bg-brand-50 p-2.5 text-brand-700">
+        <div className="rounded-xl bg-brand-50 p-2.5 text-brand-700 group-hover:bg-brand-100 group-hover:text-brand-800 transition-colors">
           <Icon className="h-5 w-5" />
         </div>
       </div>
-      {sub && <div className="mt-2 text-xs text-slate-400">{sub}</div>}
-    </div>
+      {sub ? (
+        <div className="mt-2 text-xs text-slate-400">{sub}</div>
+      ) : to ? (
+        <div className="mt-2 text-[11px] font-medium text-brand-600 opacity-80 flex items-center gap-1 group-hover:underline">
+          View details &rarr;
+        </div>
+      ) : null}
+    </CardWrapper>
   )
 }
 
@@ -92,16 +113,16 @@ export default function DashboardPage() {
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-4">
-        <StatCard icon={Library} label="Book titles" value={stats.total_titles} />
-        <StatCard icon={BookCopy} label="Total copies" value={stats.total_copies} />
-        <StatCard icon={BookOpen} label="Active loans" value={stats.active_loans} />
-        <StatCard icon={AlertTriangle} label="Overdue loans" value={stats.overdue_loans} />
-        <StatCard icon={Users} label="Members" value={stats.members} />
-        <StatCard icon={Clock3} label="Pending members" value={stats.pending_members} />
-        <StatCard icon={CreditCard} label="Pending payments" value={stats.pending_payments} />
-        <StatCard icon={DollarSign} label="Rental income" value={`${fmt(stats.rental_income)} ETB`} />
-        <StatCard icon={Wallet} label="Penalties collected" value={`${fmt(stats.penalties_collected)} ETB`} />
-        <StatCard icon={Wallet} label="Penalties outstanding" value={`${fmt(stats.penalties_outstanding)} ETB`} />
+        <StatCard icon={Library} label="Book titles" value={stats.total_titles} to="/admin/books" />
+        <StatCard icon={BookCopy} label="Total copies" value={stats.total_copies} to="/admin/books" />
+        <StatCard icon={BookOpen} label="Active loans" value={stats.active_loans} to="/admin/loans?tab=active" />
+        <StatCard icon={AlertTriangle} label="Overdue loans" value={stats.overdue_loans} to="/admin/loans?tab=overdue" />
+        <StatCard icon={Users} label="Members" value={stats.members} to="/admin/members?tab=all" />
+        <StatCard icon={Clock3} label="Pending members" value={stats.pending_members} to="/admin/members?tab=pending" />
+        <StatCard icon={CreditCard} label="Pending payments" value={stats.pending_payments} to="/admin/payments?tab=pending" />
+        <StatCard icon={DollarSign} label="Rental income" value={`${fmt(stats.rental_income)} ETB`} to="/admin/payments?tab=all" />
+        <StatCard icon={Wallet} label="Penalties collected" value={`${fmt(stats.penalties_collected)} ETB`} to="/admin/payments?tab=all" />
+        <StatCard icon={Wallet} label="Penalties outstanding" value={`${fmt(stats.penalties_outstanding)} ETB`} to="/admin/payments?tab=all" />
       </div>
 
       {stats.checked_at && (

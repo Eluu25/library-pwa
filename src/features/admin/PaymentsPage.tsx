@@ -1,4 +1,5 @@
 import { useEffect, useState, useCallback } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { Eye, CheckCircle2, XCircle, CreditCard, Sparkles } from 'lucide-react'
 import { supabase } from '../../lib/supabase'
 import { useToast } from '../../components/ToastProvider'
@@ -72,12 +73,20 @@ function TypeBadge({ type }: { type: PaymentType }) {
 
 export default function PaymentsPage() {
   const { notify } = useToast()
+  const [searchParams] = useSearchParams()
   const [payments, setPayments] = useState<Payment[]>([])
   const [profiles, setProfiles] = useState<Record<string, ProfileSimple>>({})
   const [books, setBooks] = useState<Record<string, BookSimple>>({})
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [tab, setTab] = useState<FilterTab>('pending')
+
+  useEffect(() => {
+    const qTab = searchParams.get('tab') as FilterTab | null
+    if (qTab && ['pending', 'all'].includes(qTab)) {
+      setTab(qTab)
+    }
+  }, [searchParams])
   const [actionLoading, setActionLoading] = useState<string | null>(null)
 
   const fetchData = useCallback(async () => {

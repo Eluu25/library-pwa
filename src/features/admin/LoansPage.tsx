@@ -1,4 +1,5 @@
 import { useEffect, useState, useCallback } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { CheckCircle2, AlertTriangle, XCircle, RotateCcw, BookOpen } from 'lucide-react'
 import { supabase } from '../../lib/supabase'
 import { useToast } from '../../components/ToastProvider'
@@ -67,11 +68,19 @@ function StatusBadge({ status, isOverdue }: { status: LoanStatus; isOverdue?: bo
 
 export default function LoansPage() {
   const { notify } = useToast()
+  const [searchParams] = useSearchParams()
   const [loans, setLoans] = useState<LoanDetailed[]>([])
   const [profiles, setProfiles] = useState<Record<string, ProfileSimple>>({})
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [tab, setTab] = useState<FilterTab>('all')
+
+  useEffect(() => {
+    const qTab = searchParams.get('tab') as FilterTab | null
+    if (qTab && ['all', 'active', 'requested', 'overdue', 'returned', 'lost'].includes(qTab)) {
+      setTab(qTab)
+    }
+  }, [searchParams])
   const [actionLoading, setActionLoading] = useState<string | null>(null)
 
   const fetchData = useCallback(async () => {

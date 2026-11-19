@@ -1,4 +1,5 @@
 import { useEffect, useState, useCallback } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import {
   Eye, UserCheck, UserX, Clock, IdCard, User, Phone, MapPin,
   HeartHandshake, RefreshCw, AlertTriangle, ChevronDown, ChevronUp, Check, Trash2
@@ -65,10 +66,18 @@ function StatusPill({ status, hasFayda }: { status: MemberStatus; hasFayda: bool
 
 export default function MembersPage() {
   const { notify } = useToast()
+  const [searchParams]                  = useSearchParams()
   const [members, setMembers]           = useState<Profile[]>([])
   const [loading, setLoading]           = useState(true)
   const [error, setError]               = useState<string | null>(null)
   const [tab, setTab]                   = useState<FilterTab>('all')
+
+  useEffect(() => {
+    const qTab = searchParams.get('tab') as FilterTab | null
+    if (qTab && ['all', 'pending', 'approved', 'rejected'].includes(qTab)) {
+      setTab(qTab)
+    }
+  }, [searchParams])
   const [actionLoading, setActionLoading] = useState<string | null>(null)
   const [expanded, setExpanded]         = useState<string | null>(null)
   const [rejectInput, setRejectInput]   = useState<{ id: string; reason: string } | null>(null)
